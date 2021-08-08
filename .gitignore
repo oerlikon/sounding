@@ -1,0 +1,25 @@
+/bin/
+/bin-*/
+/*.out
+
+/data/
+/grounds/
+
+# macOS
+.DS_Store
+Icon[]
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+.netrwhist
+*~
+tags
+[._]*.un~
+
+# VS Code
+.vscode/*
