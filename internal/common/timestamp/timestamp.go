@@ -11,12 +11,20 @@ func Stamp(t time.Time) Timestamp {
 	return Timestamp(t.UnixNano())
 }
 
+func Milli(ms int64) Timestamp {
+	return Timestamp(ms * 1_000_000)
+}
+
 func (t Timestamp) Time() time.Time {
 	return time.Unix(0, int64(t)).UTC()
 }
 
 func (t Timestamp) Unix() int {
 	return int(t / 1_000_000_000)
+}
+
+func (t Timestamp) UnixMilli() int64 {
+	return int64(t / 1_000_000)
 }
 
 func (t Timestamp) Add(d time.Duration) Timestamp {

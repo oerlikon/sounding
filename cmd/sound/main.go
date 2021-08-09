@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
 
 	flag "github.com/spf13/pflag"
@@ -15,16 +18,16 @@ import (
 )
 
 var Options struct {
-	CPUProfile  string
-	Concurrency int `traits:"ge=1"`
-	Help        bool
+	CPUProfile string
+	ExpID      int
+	Help       bool
 }
 
 var flags flag.FlagSet
 
 func init() {
 	flags.StringVarP(&Options.CPUProfile, "cpuprofile", "", "", "cpu profile")
-	flags.IntVarP(&Options.Concurrency, "C", "C", 1, "concurrency")
+	flags.IntVarP(&Options.ExpID, "id", "", 0, "experiment ID")
 	flags.BoolVarP(&Options.Help, "help", "", false, "this help message")
 	flags.SetInterspersed(false)
 	flags.SetOutput(io.Discard)
@@ -92,6 +95,54 @@ func run() (err error, ret int) {
 		case "kraken":
 		}
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+	go func() {
+		<-interrupt
+		cancel()
+	}()
+
+	for _, listener := range listeners {
+		if err := listener.Start(ctx); err != nil {
+			return err, 2
+		}
+	}
+
+	expID := ""
+	if Options.ExpID != 0 {
+		expID = fmt.Sprintf("%d,", Options.ExpID)
+	}
+
+	writer := bufio.NewWriterSize(os.Stdout, 1*MiB)
+	for upd := range listeners["binance"].Book() {
+		for _, pl := range upd.Bids {
+			writer.WriteString(fmt.Sprintf("%s%d,%s,%s,%s,%s,%s,%s\n",
+				expID,
+				upd.Timestamp.UnixMilli(),
+				upd.Timestamp.Format("2006-01-02 15:04:05.000"),
+				upd.Exchange,
+				strings.ToUpper(upd.Symbol),
+				"BID",
+				pl.P,
+				pl.Q))
+		}
+		for _, pl := range upd.Asks {
+			writer.WriteString(fmt.Sprintf("%s%d,%s,%s,%s,%s,%s,%s\n",
+				expID,
+				upd.Timestamp.UnixMilli(),
+				upd.Timestamp.Format("2006-01-02 15:04:05.000"),
+				upd.Exchange,
+				strings.ToUpper(upd.Symbol),
+				"ASK",
+				pl.P,
+				pl.Q))
+		}
+	}
+	writer.Flush()
 
 	return nil, 0
 }
