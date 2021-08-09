@@ -15,10 +15,3 @@ type DepthUpdateMessage struct {
 	Bids      []exchange.PriceLevelUpdate
 	Asks      []exchange.PriceLevelUpdate
 }
-
-type DepthSnapshotMessage struct {
-	Received     Timestamp
-	LastUpdateID int64
-	Bids         []exchange.PriceLevelUpdate
-	Asks         []exchange.PriceLevelUpdate
-}

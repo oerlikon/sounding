@@ -190,7 +190,7 @@ func (l *Listener) fetchDepthSnapshot() {
 		return
 	}
 	ds := l.parseDepthSnapshot(v)
-	ds.Received = received
+	ds.Timestamp, ds.Received = received, received
 	l.depthSnapshot.Store(ds)
 }
 
@@ -211,10 +211,10 @@ func (l *Listener) process(msg []byte) error {
 			}
 			l.depthUpdates = append(l.depthUpdates, du)
 			if depthSnapshot := l.depthSnapshot.Load(); depthSnapshot != nil {
-				ds := depthSnapshot.(*DepthSnapshotMessage)
-				l.sendDepthSnapshot(ds)
+				ds := depthSnapshot.(*DepthUpdateMessage)
+				l.sendDepthUpdate(ds)
 				for _, du := range l.depthUpdates {
-					if du.FinalID < ds.LastUpdateID+1 {
+					if du.FinalID < ds.FinalID+1 {
 						continue
 					}
 					l.sendDepthUpdate(du)
@@ -228,7 +228,7 @@ func (l *Listener) process(msg []byte) error {
 	return nil
 }
 
-func (l *Listener) parseDepthSnapshot(v *fastjson.Value) *DepthSnapshotMessage {
+func (l *Listener) parseDepthSnapshot(v *fastjson.Value) *DepthUpdateMessage {
 	lastUpdateID := v.GetInt64("lastUpdateId")
 
 	var bids, asks []exchange.PriceLevelUpdate
@@ -253,25 +253,10 @@ func (l *Listener) parseDepthSnapshot(v *fastjson.Value) *DepthSnapshotMessage {
 		return nil
 	}
 
-	return &DepthSnapshotMessage{
-		LastUpdateID: lastUpdateID,
-		Bids:         bids,
-		Asks:         asks,
-	}
-}
-
-func (l *Listener) sendDepthSnapshot(ds *DepthSnapshotMessage) {
-	bookCh := l.bookCh.Load()
-	if bookCh == nil {
-		return
-	}
-	bookCh.(chan *exchange.BookUpdate) <- &exchange.BookUpdate{
-		Exchange:  exchName,
-		Symbol:    l.symbol,
-		Timestamp: ds.Received,
-		Received:  ds.Received,
-		Bids:      ds.Bids,
-		Asks:      ds.Asks,
+	return &DepthUpdateMessage{
+		FinalID: lastUpdateID,
+		Bids:    bids,
+		Asks:    asks,
 	}
 }
 
