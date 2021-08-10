@@ -130,6 +130,10 @@ func run() (err error, ret int) {
 		wg.Add(1)
 		go BooksLoop(listeners, writer, &wg)
 	}
+	if Options.Trades {
+		wg.Add(1)
+		go TradesLoop(listeners, writer, &wg)
+	}
 
 	wg.Wait()
 	writer.Flush()
@@ -179,8 +183,8 @@ func BooksLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGr
 				bu.Exchange,
 				strings.ToUpper(bu.Symbol),
 				"BID",
-				pl.P,
-				pl.Q))
+				pl.Price,
+				pl.Quantity))
 		}
 		for _, pl := range bu.Asks {
 			w.WriteString(fmt.Sprintf("B %s%d,%s,%s,%s,%s,%s,%s\n",
@@ -190,9 +194,51 @@ func BooksLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGr
 				bu.Exchange,
 				strings.ToUpper(bu.Symbol),
 				"ASK",
-				pl.P,
-				pl.Q))
+				pl.Price,
+				pl.Quantity))
 		}
+	}
+	wg.Done()
+}
+
+func TradesLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGroup) {
+	exp := ""
+	if Options.ExpID != 0 {
+		exp = fmt.Sprintf("%d,", Options.ExpID)
+	}
+	cases := make([]reflect.SelectCase, 0, len(listeners))
+	for _, listener := range listeners {
+		if listener == nil {
+			continue
+		}
+		if trades := listener.Trades(); trades != nil {
+			cases = append(cases, reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(trades),
+			})
+		}
+	}
+	for len(cases) > 0 {
+		n, value, ok := reflect.Select(cases)
+		if !ok {
+			cases = append(cases[:n], cases[n+1:]...)
+			continue
+		}
+		trade := value.Interface().(*exchange.Trade)
+		w.WriteString(fmt.Sprintf("T %s%d,%s,%s,%s,%s,%s,%s\n",
+			exp,
+			trade.Timestamp.UnixMilli(),
+			trade.Timestamp.Format("2006-01-02 15:04:05.000"),
+			trade.Exchange,
+			strings.ToUpper(trade.Symbol),
+			func() string {
+				if trade.Maker == exchange.Bid {
+					return "BID"
+				}
+				return "ASK"
+			}(),
+			trade.Price,
+			trade.Quantity))
 	}
 	wg.Done()
 }

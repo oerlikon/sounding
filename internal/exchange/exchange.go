@@ -6,6 +6,9 @@ import (
 	. "sounding/internal/common/timestamp"
 )
 
+//
+// Listener
+
 type Listener interface {
 	Exchange() string
 	Symbol() string
@@ -13,8 +16,11 @@ type Listener interface {
 	Start(ctx context.Context) error
 
 	Book() <-chan *BookUpdate
-	Errs() <-chan error
+	Trades() <-chan *Trade
 }
+
+//
+// Side
 
 type Side int
 
@@ -25,6 +31,9 @@ const (
 	Ask  Side = 2
 	Sell Side = Ask
 )
+
+//
+// BookUpdate
 
 type BookUpdate struct {
 	Exchange string
@@ -38,6 +47,26 @@ type BookUpdate struct {
 }
 
 type PriceLevelUpdate struct {
-	P string
-	Q string
+	Price    string
+	Quantity string
+}
+
+//
+// Trade
+
+type Trade struct {
+	Exchange string
+	Symbol   string
+
+	Timestamp Timestamp
+	Received  Timestamp
+	Occurred  Timestamp
+
+	TradeID     int64
+	BuyOrderID  int64
+	SellOrderID int64
+
+	Price    string
+	Quantity string
+	Maker    Side
 }
