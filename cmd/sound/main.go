@@ -232,10 +232,10 @@ func TradesLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitG
 			trade.Exchange,
 			strings.ToUpper(trade.Symbol),
 			func() string {
-				if trade.Maker == exchange.Bid {
-					return "BID"
+				if trade.Maker == exchange.Ask {
+					return "BUY"
 				}
-				return "ASK"
+				return "SELL"
 			}(),
 			trade.Price,
 			trade.Quantity))
