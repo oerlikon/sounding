@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	flag "github.com/spf13/pflag"
+	"golang.org/x/term"
 
 	. "sounding/internal/common"
 	"sounding/internal/exchange"
@@ -103,6 +104,9 @@ func run() (err error, ret int) {
 	signal.Notify(interrupt, os.Interrupt)
 	go func() {
 		<-interrupt
+		if term.IsTerminal(int(os.Stderr.Fd())) {
+			fmt.Fprintf(os.Stderr, "\r  \r") // Erase possible ^C.
+		}
 		cancel()
 	}()
 
@@ -118,25 +122,25 @@ func run() (err error, ret int) {
 	}
 
 	writer := bufio.NewWriterSize(os.Stdout, 1*MiB)
-	for upd := range listeners["binance"].Book() {
-		for _, pl := range upd.Bids {
-			writer.WriteString(fmt.Sprintf("%s%d,%s,%s,%s,%s,%s,%s\n",
+	for du := range listeners["binance"].Book() {
+		for _, pl := range du.Bids {
+			writer.WriteString(fmt.Sprintf("U %s%d,%s,%s,%s,%s,%s,%s\n",
 				expID,
-				upd.Timestamp.UnixMilli(),
-				upd.Timestamp.Format("2006-01-02 15:04:05.000"),
-				upd.Exchange,
-				strings.ToUpper(upd.Symbol),
+				du.Timestamp.UnixMilli(),
+				du.Timestamp.Format("2006-01-02 15:04:05.000"),
+				du.Exchange,
+				strings.ToUpper(du.Symbol),
 				"BID",
 				pl.P,
 				pl.Q))
 		}
-		for _, pl := range upd.Asks {
-			writer.WriteString(fmt.Sprintf("%s%d,%s,%s,%s,%s,%s,%s\n",
+		for _, pl := range du.Asks {
+			writer.WriteString(fmt.Sprintf("U %s%d,%s,%s,%s,%s,%s,%s\n",
 				expID,
-				upd.Timestamp.UnixMilli(),
-				upd.Timestamp.Format("2006-01-02 15:04:05.000"),
-				upd.Exchange,
-				strings.ToUpper(upd.Symbol),
+				du.Timestamp.UnixMilli(),
+				du.Timestamp.Format("2006-01-02 15:04:05.000"),
+				du.Exchange,
+				strings.ToUpper(du.Symbol),
 				"ASK",
 				pl.P,
 				pl.Q))
