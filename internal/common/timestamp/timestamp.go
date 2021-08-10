@@ -43,5 +43,5 @@ func (t Timestamp) S() string {
 	if t == 0 {
 		return "0"
 	}
-	return t.Format("2006-01-02_15:04:05")
+	return t.Format("2006-01-02_15:04:05.000")
 }

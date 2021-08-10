@@ -70,7 +70,7 @@ func run() (err error, ret int) {
 			if exch == "" || sym == "" {
 				return fmt.Errorf("bad arg: %s", arg), 1
 			}
-			if !ContainsString(exchanges, exch) {
+			if !FindString(exchanges, exch) {
 				return fmt.Errorf("unknown exchange: %s", exch), 1
 			}
 			if symbols[exch] != "" && symbols[exch] != sym {
@@ -152,7 +152,6 @@ func BooksLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGr
 	if Options.ExpID != 0 {
 		exp = fmt.Sprintf("%d,", Options.ExpID)
 	}
-
 	cases := make([]reflect.SelectCase, 0, len(listeners))
 	for _, listener := range listeners {
 		if listener == nil {
@@ -165,7 +164,6 @@ func BooksLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGr
 			})
 		}
 	}
-
 	for len(cases) > 0 {
 		n, value, ok := reflect.Select(cases)
 		if !ok {
@@ -196,6 +194,5 @@ func BooksLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGr
 				pl.Q))
 		}
 	}
-
 	wg.Done()
 }

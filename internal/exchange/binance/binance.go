@@ -10,8 +10,10 @@ const exchName = "Binance"
 type DepthUpdateMessage struct {
 	Timestamp Timestamp
 	Received  Timestamp
-	FirstID   int64
-	FinalID   int64
-	Bids      []exchange.PriceLevelUpdate
-	Asks      []exchange.PriceLevelUpdate
+
+	FirstID int64
+	FinalID int64
+
+	Bids []exchange.PriceLevelUpdate
+	Asks []exchange.PriceLevelUpdate
 }

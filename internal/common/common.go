@@ -8,7 +8,7 @@ const (
 	TiB
 )
 
-func ContainsString(a []string, s string) bool {
+func FindString(a []string, s string) bool {
 	for _, z := range a {
 		if z == s {
 			return true

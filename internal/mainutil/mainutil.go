@@ -85,17 +85,6 @@ func ParseTimeArg(s string) (t time.Time, err error) {
 	return time.Parse(formats[0], s)
 }
 
-func GetSynthPairs(target string, others []string) [][2]string {
-	pairs := make([][2]string, 0, len(others))
-	for _, s := range others {
-		if target == s {
-			continue
-		}
-		pairs = append(pairs, [2]string{target, s})
-	}
-	return pairs
-}
-
 func NewProgressBar(count int, options ...bar.Option) *bar.ProgressBar {
 	return bar.NewOptions(count,
 		append([]bar.Option{
