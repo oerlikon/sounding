@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"reflect"
 	"strings"
+	"sync"
 
 	flag "github.com/spf13/pflag"
 	"golang.org/x/term"
@@ -19,16 +21,20 @@ import (
 )
 
 var Options struct {
-	CPUProfile string
+	Books      bool
+	Trades     bool
 	ExpID      int
+	CPUProfile string
 	Help       bool
 }
 
 var flags flag.FlagSet
 
 func init() {
-	flags.StringVarP(&Options.CPUProfile, "cpuprofile", "", "", "cpu profile")
+	flags.BoolVarP(&Options.Books, "books", "B", true, "books")
+	flags.BoolVarP(&Options.Trades, "trades", "T", true, "trades")
 	flags.IntVarP(&Options.ExpID, "id", "", 0, "experiment ID")
+	flags.StringVarP(&Options.CPUProfile, "cpuprofile", "", "", "cpu profile")
 	flags.BoolVarP(&Options.Help, "help", "", false, "this help message")
 	flags.SetInterspersed(false)
 	flags.SetOutput(io.Discard)
@@ -79,7 +85,7 @@ func run() (err error, ret int) {
 		}
 	}
 
-	listeners := make(map[string]exchange.Listener, len(exchanges))
+	listeners := make([]exchange.Listener, 0, len(exchanges))
 	for _, exch := range exchanges {
 		symbol, ok := symbols[exch]
 		if !ok {
@@ -90,7 +96,8 @@ func run() (err error, ret int) {
 		}
 		switch exch {
 		case "binance":
-			listeners[exch] = binance.NewListener(symbol, exchange.OptionLogger(stderr))
+			listeners = append(listeners, binance.NewListener(symbol,
+				exchange.OptionLogger(stderr)))
 		case "bitfinex":
 		case "huobi":
 		case "kraken":
@@ -116,36 +123,15 @@ func run() (err error, ret int) {
 		}
 	}
 
-	expID := ""
-	if Options.ExpID != 0 {
-		expID = fmt.Sprintf("%d,", Options.ExpID)
+	writer := bufio.NewWriterSize(os.Stdout, 1*MiB)
+	wg := sync.WaitGroup{}
+
+	if Options.Books {
+		wg.Add(1)
+		go BooksLoop(listeners, writer, &wg)
 	}
 
-	writer := bufio.NewWriterSize(os.Stdout, 1*MiB)
-	for du := range listeners["binance"].Book() {
-		for _, pl := range du.Bids {
-			writer.WriteString(fmt.Sprintf("U %s%d,%s,%s,%s,%s,%s,%s\n",
-				expID,
-				du.Timestamp.UnixMilli(),
-				du.Timestamp.Format("2006-01-02 15:04:05.000"),
-				du.Exchange,
-				strings.ToUpper(du.Symbol),
-				"BID",
-				pl.P,
-				pl.Q))
-		}
-		for _, pl := range du.Asks {
-			writer.WriteString(fmt.Sprintf("U %s%d,%s,%s,%s,%s,%s,%s\n",
-				expID,
-				du.Timestamp.UnixMilli(),
-				du.Timestamp.Format("2006-01-02 15:04:05.000"),
-				du.Exchange,
-				strings.ToUpper(du.Symbol),
-				"ASK",
-				pl.P,
-				pl.Q))
-		}
-	}
+	wg.Wait()
 	writer.Flush()
 
 	return nil, 0
@@ -159,4 +145,57 @@ func main() {
 	if ret != 0 {
 		os.Exit(ret)
 	}
+}
+
+func BooksLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGroup) {
+	exp := ""
+	if Options.ExpID != 0 {
+		exp = fmt.Sprintf("%d,", Options.ExpID)
+	}
+
+	cases := make([]reflect.SelectCase, 0, len(listeners))
+	for _, listener := range listeners {
+		if listener == nil {
+			continue
+		}
+		if book := listener.Book(); book != nil {
+			cases = append(cases, reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(book),
+			})
+		}
+	}
+
+	for len(cases) > 0 {
+		n, value, ok := reflect.Select(cases)
+		if !ok {
+			cases = append(cases[:n], cases[n+1:]...)
+			continue
+		}
+		bu := value.Interface().(*exchange.BookUpdate)
+		for _, pl := range bu.Bids {
+			w.WriteString(fmt.Sprintf("B %s%d,%s,%s,%s,%s,%s,%s\n",
+				exp,
+				bu.Timestamp.UnixMilli(),
+				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
+				bu.Exchange,
+				strings.ToUpper(bu.Symbol),
+				"BID",
+				pl.P,
+				pl.Q))
+		}
+		for _, pl := range bu.Asks {
+			w.WriteString(fmt.Sprintf("B %s%d,%s,%s,%s,%s,%s,%s\n",
+				exp,
+				bu.Timestamp.UnixMilli(),
+				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
+				bu.Exchange,
+				strings.ToUpper(bu.Symbol),
+				"ASK",
+				pl.P,
+				pl.Q))
+		}
+	}
+
+	wg.Done()
 }
