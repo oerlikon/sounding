@@ -92,7 +92,7 @@ func run() (err error, ret int) {
 			symbol = symbols["*"]
 		}
 		if symbol == "" {
-			return fmt.Errorf("no symbol for exchange: %s", exch), 1
+			continue
 		}
 		switch exch {
 		case "binance":
@@ -104,8 +104,17 @@ func run() (err error, ret int) {
 		}
 	}
 
+	if len(listeners) == 0 {
+		stderr.Print("No listeners?")
+		return nil, 1
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	var mu sync.Mutex // Initialization mutex.
+
+	mu.Lock()
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -114,6 +123,8 @@ func run() (err error, ret int) {
 		if term.IsTerminal(int(os.Stderr.Fd())) {
 			fmt.Fprintf(os.Stderr, "\r  \r") // Erase possible ^C.
 		}
+		mu.Lock()
+		defer mu.Unlock()
 		cancel()
 	}()
 
@@ -128,12 +139,14 @@ func run() (err error, ret int) {
 
 	if Options.Books {
 		wg.Add(1)
-		go BooksLoop(listeners, writer, &wg)
+		go BooksLoop(Books(listeners), writer, &wg)
 	}
 	if Options.Trades {
 		wg.Add(1)
-		go TradesLoop(listeners, writer, &wg)
+		go TradesLoop(Trades(listeners), writer, &wg)
 	}
+
+	mu.Unlock()
 
 	wg.Wait()
 	writer.Flush()
@@ -151,21 +164,32 @@ func main() {
 	}
 }
 
-func BooksLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGroup) {
-	exp := ""
-	if Options.ExpID != 0 {
-		exp = fmt.Sprintf("%d,", Options.ExpID)
-	}
-	cases := make([]reflect.SelectCase, 0, len(listeners))
+func Books(listeners []exchange.Listener) []<-chan *exchange.BookUpdate {
+	books := make([]<-chan *exchange.BookUpdate, 0, len(listeners))
 	for _, listener := range listeners {
 		if listener == nil {
 			continue
 		}
-		if book := listener.Book(); book != nil {
-			cases = append(cases, reflect.SelectCase{
-				Dir:  reflect.SelectRecv,
-				Chan: reflect.ValueOf(book),
-			})
+		if bc := listener.Book(); bc != nil {
+			books = append(books, bc)
+		}
+	}
+	if len(books) == 0 {
+		return nil
+	}
+	return books
+}
+
+func BooksLoop(books []<-chan *exchange.BookUpdate, w io.StringWriter, wg *sync.WaitGroup) {
+	exp := ""
+	if Options.ExpID != 0 {
+		exp = fmt.Sprintf("%d,", Options.ExpID)
+	}
+	cases := make([]reflect.SelectCase, len(books))
+	for i, bc := range books {
+		cases[i] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(bc),
 		}
 	}
 	for len(cases) > 0 {
@@ -201,21 +225,32 @@ func BooksLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGr
 	wg.Done()
 }
 
-func TradesLoop(listeners []exchange.Listener, w io.StringWriter, wg *sync.WaitGroup) {
-	exp := ""
-	if Options.ExpID != 0 {
-		exp = fmt.Sprintf("%d,", Options.ExpID)
-	}
-	cases := make([]reflect.SelectCase, 0, len(listeners))
+func Trades(listeners []exchange.Listener) []<-chan *exchange.Trade {
+	trades := make([]<-chan *exchange.Trade, 0, len(listeners))
 	for _, listener := range listeners {
 		if listener == nil {
 			continue
 		}
-		if trades := listener.Trades(); trades != nil {
-			cases = append(cases, reflect.SelectCase{
-				Dir:  reflect.SelectRecv,
-				Chan: reflect.ValueOf(trades),
-			})
+		if tc := listener.Trades(); tc != nil {
+			trades = append(trades, tc)
+		}
+	}
+	if len(trades) == 0 {
+		return nil
+	}
+	return trades
+}
+
+func TradesLoop(trades []<-chan *exchange.Trade, w io.StringWriter, wg *sync.WaitGroup) {
+	exp := ""
+	if Options.ExpID != 0 {
+		exp = fmt.Sprintf("%d,", Options.ExpID)
+	}
+	cases := make([]reflect.SelectCase, len(trades))
+	for i, tc := range trades {
+		cases[i] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(tc),
 		}
 	}
 	for len(cases) > 0 {
