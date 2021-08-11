@@ -17,3 +17,17 @@ type DepthUpdateMessage struct {
 	Bids []exchange.PriceLevelUpdate
 	Asks []exchange.PriceLevelUpdate
 }
+
+type TradeMessage struct {
+	Timestamp Timestamp
+	Received  Timestamp
+	Occurred  Timestamp
+
+	TradeID     int64
+	BuyOrderID  int64
+	SellOrderID int64
+
+	Price    string
+	Quantity string
+	MakerBuy bool
+}
