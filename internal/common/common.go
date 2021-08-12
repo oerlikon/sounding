@@ -8,11 +8,11 @@ const (
 	TiB
 )
 
-func FindString(a []string, s string) bool {
-	for _, z := range a {
+func FindString(a []string, s string) int {
+	for i, z := range a {
 		if z == s {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
 }

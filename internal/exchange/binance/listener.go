@@ -3,6 +3,7 @@ package binance
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -80,7 +81,6 @@ func (l *Listener) Start(ctx context.Context) error {
 	l.ws = ws
 
 	msgs := make(chan []byte, 1)
-
 	go func() {
 		errcount := 0
 		for {
@@ -104,7 +104,6 @@ func (l *Listener) Start(ctx context.Context) error {
 			}
 		}
 	}()
-
 	go func() {
 		for {
 			select {
@@ -118,7 +117,6 @@ func (l *Listener) Start(ctx context.Context) error {
 			}
 		}
 	}()
-
 	return nil
 }
 
@@ -138,9 +136,9 @@ func (l *Listener) Book() <-chan *exchange.BookUpdate {
 	return bookCh
 }
 
-func (l *Listener) Trades() <-chan *exchange.Trade {
+func (l *Listener) Trades() <-chan []*exchange.Trade {
 	if tradesCh := l.tradesCh.Load(); tradesCh != nil {
-		return tradesCh.(chan *exchange.Trade)
+		return tradesCh.(chan []*exchange.Trade)
 	}
 	if !l.subscribed.trade {
 		if err := l.subscribeTrade(); err != nil {
@@ -148,7 +146,7 @@ func (l *Listener) Trades() <-chan *exchange.Trade {
 			return nil
 		}
 	}
-	tradesCh := make(chan *exchange.Trade, 1)
+	tradesCh := make(chan []*exchange.Trade, 1)
 	l.tradesCh.Store(tradesCh)
 	return tradesCh
 }
@@ -165,6 +163,10 @@ func (l *Listener) warn(err error) {
 	}
 }
 
+func (l *Listener) sendWsMessage(msg string) error {
+	return l.ws.WriteMessage(websocket.TextMessage, []byte(msg))
+}
+
 func (l *Listener) subscribeDepth() error {
 	l.subscribed.mu.Lock()
 	defer l.subscribed.mu.Unlock()
@@ -172,10 +174,9 @@ func (l *Listener) subscribeDepth() error {
 	if l.subscribed.depth {
 		return nil
 	}
-	msg := bytes.Buffer{}
-	msg.WriteString(fmt.Sprintf(`{"method":"SUBSCRIBE","params":["%s@depth"],"id":1}`,
-		strings.ToLower(l.symbol)))
-	if err := l.ws.WriteMessage(websocket.TextMessage, msg.Bytes()); err != nil {
+	msg := fmt.Sprintf(`{"method":"SUBSCRIBE","params":["%s@depth"],"id":1}`,
+		strings.ToLower(l.symbol))
+	if err := l.sendWsMessage(msg); err != nil {
 		return err
 	}
 	l.subscribed.depth = true
@@ -189,10 +190,9 @@ func (l *Listener) unsubscribeDepth() {
 	if !l.subscribed.depth {
 		return
 	}
-	msg := bytes.Buffer{}
-	msg.WriteString(fmt.Sprintf(`{"method":"UNSUBSCRIBE","params":["%s@depth"],"id":1}`,
-		strings.ToLower(l.symbol)))
-	if err := l.ws.WriteMessage(websocket.TextMessage, msg.Bytes()); err != nil {
+	msg := fmt.Sprintf(`{"method":"UNSUBSCRIBE","params":["%s@depth"],"id":1}`,
+		strings.ToLower(l.symbol))
+	if err := l.sendWsMessage(msg); err != nil {
 		return
 	}
 	l.subscribed.depth = false
@@ -206,10 +206,9 @@ func (l *Listener) subscribeTrade() error {
 	if l.subscribed.trade {
 		return nil
 	}
-	msg := bytes.Buffer{}
-	msg.WriteString(fmt.Sprintf(`{"method":"SUBSCRIBE","params":["%s@trade"],"id":2}`,
-		strings.ToLower(l.symbol)))
-	if err := l.ws.WriteMessage(websocket.TextMessage, msg.Bytes()); err != nil {
+	msg := fmt.Sprintf(`{"method":"SUBSCRIBE","params":["%s@trade"],"id":2}`,
+		strings.ToLower(l.symbol))
+	if err := l.sendWsMessage(msg); err != nil {
 		return err
 	}
 	l.subscribed.trade = true
@@ -223,10 +222,9 @@ func (l *Listener) unsubscribeTrade() {
 	if !l.subscribed.trade {
 		return
 	}
-	msg := bytes.Buffer{}
-	msg.WriteString(fmt.Sprintf(`{"method":"UNSUBSCRIBE","params":["%s@trade"],"id":2}`,
-		strings.ToLower(l.symbol)))
-	if err := l.ws.WriteMessage(websocket.TextMessage, msg.Bytes()); err != nil {
+	msg := fmt.Sprintf(`{"method":"UNSUBSCRIBE","params":["%s@trade"],"id":2}`,
+		strings.ToLower(l.symbol))
+	if err := l.sendWsMessage(msg); err != nil {
 		return
 	}
 	l.subscribed.trade = false
@@ -248,6 +246,16 @@ func (l *Listener) fetchDepthSnapshot() {
 		l.err(err)
 		return
 	}
+
+	if bytes.Index(body, []byte("Illegal")) >= 0 {
+		l.err(errors.New(string(body)))
+		return
+	}
+	if bytes.Index(body, []byte("Invalid")) >= 0 {
+		l.err(errors.New(string(body)))
+		return
+	}
+
 	var parser fastjson.Parser
 	v, err := parser.ParseBytes(body)
 	if err != nil {
@@ -296,6 +304,9 @@ func (l *Listener) process(msg []byte) error {
 			return nil
 		}
 	}
+	if bytes.Index(msg, []byte("error")) >= 0 {
+		return errors.New(string(msg))
+	}
 	return nil
 }
 
@@ -305,15 +316,15 @@ func (l *Listener) parseDepthSnapshot(v *fastjson.Value) *DepthUpdateMessage {
 	if b := v.GetArray("bids"); b != nil {
 		bids = make([]exchange.PriceLevelUpdate, len(b))
 		for i, pq := range b {
-			bids[i].Price = string(pq.GetStringBytes("0"))
-			bids[i].Quantity = string(pq.GetStringBytes("1"))
+			bids[i].Price = pq.GetArray()[0].S()
+			bids[i].Quantity = pq.GetArray()[1].S()
 		}
 	}
-	if a := v.GetArray("aaks"); a != nil {
+	if a := v.GetArray("asks"); a != nil {
 		asks = make([]exchange.PriceLevelUpdate, len(a))
 		for i, pq := range a {
-			asks[i].Price = string(pq.GetStringBytes("0"))
-			asks[i].Quantity = string(pq.GetStringBytes("1"))
+			asks[i].Price = pq.GetArray()[0].S()
+			asks[i].Quantity = pq.GetArray()[1].S()
 		}
 	}
 
@@ -337,15 +348,15 @@ func (l *Listener) parseDepthUpdate(v *fastjson.Value) *DepthUpdateMessage {
 	if b := v.GetArray("b"); b != nil {
 		bids = make([]exchange.PriceLevelUpdate, len(b))
 		for i, pq := range b {
-			bids[i].Price = string(pq.GetStringBytes("0"))
-			bids[i].Quantity = string(pq.GetStringBytes("1"))
+			bids[i].Price = pq.GetArray()[0].S()
+			bids[i].Quantity = pq.GetArray()[1].S()
 		}
 	}
 	if a := v.GetArray("a"); a != nil {
 		asks = make([]exchange.PriceLevelUpdate, len(a))
 		for i, pq := range a {
-			asks[i].Price = string(pq.GetStringBytes("0"))
-			asks[i].Quantity = string(pq.GetStringBytes("1"))
+			asks[i].Price = pq.GetArray()[0].S()
+			asks[i].Quantity = pq.GetArray()[1].S()
 		}
 	}
 
@@ -380,8 +391,8 @@ func (l *Listener) parseTrade(v *fastjson.Value) *TradeMessage {
 		TradeID:     v.GetInt64("t"),
 		BuyOrderID:  v.GetInt64("b"),
 		SellOrderID: v.GetInt64("a"),
-		Price:       string(v.GetStringBytes("p")),
-		Quantity:    string(v.GetStringBytes("q")),
+		Price:       v.Get("p").S(),
+		Quantity:    v.Get("q").S(),
 		MakerBuy:    v.GetBool("m"),
 	}
 }
@@ -391,23 +402,25 @@ func (l *Listener) sendTrade(trade *TradeMessage) {
 	if tradesCh == nil {
 		return
 	}
-	tradesCh.(chan *exchange.Trade) <- &exchange.Trade{
-		Exchange:    exchName,
-		Symbol:      l.symbol,
-		Timestamp:   trade.Timestamp,
-		Received:    trade.Received,
-		Occurred:    trade.Occurred,
-		TradeID:     trade.TradeID,
-		BuyOrderID:  trade.BuyOrderID,
-		SellOrderID: trade.SellOrderID,
-		Price:       trade.Price,
-		Quantity:    trade.Quantity,
-		Maker: func() exchange.Side {
-			if trade.MakerBuy {
+	tradesCh.(chan []*exchange.Trade) <- []*exchange.Trade{
+		&exchange.Trade{
+			Exchange:    exchName,
+			Symbol:      l.symbol,
+			Timestamp:   trade.Timestamp,
+			Received:    trade.Received,
+			Occurred:    trade.Occurred,
+			TradeID:     trade.TradeID,
+			BuyOrderID:  trade.BuyOrderID,
+			SellOrderID: trade.SellOrderID,
+			Price:       trade.Price,
+			Quantity:    trade.Quantity,
+			Taker: func() exchange.Side {
+				if trade.MakerBuy {
+					return exchange.Sell
+				}
 				return exchange.Buy
-			}
-			return exchange.Sell
-		}(),
+			}(),
+		},
 	}
 }
 
@@ -422,7 +435,7 @@ func (l *Listener) shutdown() {
 	}
 	if tradesCh := l.tradesCh.Load(); tradesCh != nil {
 		l.unsubscribeTrade()
-		close(tradesCh.(chan *exchange.Trade))
+		close(tradesCh.(chan []*exchange.Trade))
 		l.tradesCh = atomic.Value{}
 	}
 	l.ws.Close()

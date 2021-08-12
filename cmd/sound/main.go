@@ -15,8 +15,10 @@ import (
 	"golang.org/x/term"
 
 	. "sounding/internal/common"
+	"sounding/internal/common/syncio"
 	"sounding/internal/exchange"
 	"sounding/internal/exchange/binance"
+	"sounding/internal/exchange/bitfinex"
 	"sounding/internal/mainutil"
 )
 
@@ -70,7 +72,7 @@ func run() (err error, ret int) {
 			if exch == "" || sym == "" {
 				return fmt.Errorf("bad arg: %s", arg), 1
 			}
-			if !FindString(exchanges, exch) {
+			if FindString(exchanges, exch) < 0 {
 				return fmt.Errorf("unknown exchange: %s", exch), 1
 			}
 			if symbols[exch] != "" && symbols[exch] != sym {
@@ -99,6 +101,8 @@ func run() (err error, ret int) {
 			listeners = append(listeners, binance.NewListener(symbol,
 				exchange.OptionLogger(stderr)))
 		case "bitfinex":
+			listeners = append(listeners, bitfinex.NewListener(symbol,
+				exchange.OptionLogger(stderr)))
 		case "huobi":
 		case "kraken":
 		}
@@ -134,7 +138,8 @@ func run() (err error, ret int) {
 		}
 	}
 
-	writer := bufio.NewWriterSize(os.Stdout, 1*MiB)
+	out := bufio.NewWriterSize(os.Stdout, 1*MiB)
+	writer := syncio.NewStringWriter(out)
 	wg := sync.WaitGroup{}
 
 	if Options.Books {
@@ -149,7 +154,7 @@ func run() (err error, ret int) {
 	mu.Unlock()
 
 	wg.Wait()
-	writer.Flush()
+	out.Flush()
 
 	return nil, 0
 }
@@ -192,15 +197,17 @@ func BooksLoop(books []<-chan *exchange.BookUpdate, w io.StringWriter, wg *sync.
 			Chan: reflect.ValueOf(bc),
 		}
 	}
+	var b strings.Builder
 	for len(cases) > 0 {
 		n, value, ok := reflect.Select(cases)
 		if !ok {
 			cases = append(cases[:n], cases[n+1:]...)
 			continue
 		}
+		b.Reset()
 		bu := value.Interface().(*exchange.BookUpdate)
 		for _, pl := range bu.Bids {
-			w.WriteString(fmt.Sprintf("B %s%d,%s,%s,%s,%s,%s,%s\n",
+			fmt.Fprintf(&b, "B %s%d,%s,%s,%s,%s,%s,%s\n",
 				exp,
 				bu.Timestamp.UnixMilli(),
 				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
@@ -208,10 +215,10 @@ func BooksLoop(books []<-chan *exchange.BookUpdate, w io.StringWriter, wg *sync.
 				strings.ToUpper(bu.Symbol),
 				"BID",
 				pl.Price,
-				pl.Quantity))
+				pl.Quantity)
 		}
 		for _, pl := range bu.Asks {
-			w.WriteString(fmt.Sprintf("B %s%d,%s,%s,%s,%s,%s,%s\n",
+			fmt.Fprintf(&b, "B %s%d,%s,%s,%s,%s,%s,%s\n",
 				exp,
 				bu.Timestamp.UnixMilli(),
 				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
@@ -219,14 +226,15 @@ func BooksLoop(books []<-chan *exchange.BookUpdate, w io.StringWriter, wg *sync.
 				strings.ToUpper(bu.Symbol),
 				"ASK",
 				pl.Price,
-				pl.Quantity))
+				pl.Quantity)
 		}
+		w.WriteString(b.String())
 	}
 	wg.Done()
 }
 
-func Trades(listeners []exchange.Listener) []<-chan *exchange.Trade {
-	trades := make([]<-chan *exchange.Trade, 0, len(listeners))
+func Trades(listeners []exchange.Listener) []<-chan []*exchange.Trade {
+	trades := make([]<-chan []*exchange.Trade, 0, len(listeners))
 	for _, listener := range listeners {
 		if listener == nil {
 			continue
@@ -241,7 +249,7 @@ func Trades(listeners []exchange.Listener) []<-chan *exchange.Trade {
 	return trades
 }
 
-func TradesLoop(trades []<-chan *exchange.Trade, w io.StringWriter, wg *sync.WaitGroup) {
+func TradesLoop(trades []<-chan []*exchange.Trade, w io.StringWriter, wg *sync.WaitGroup) {
 	exp := ""
 	if Options.ExpID != 0 {
 		exp = fmt.Sprintf("%d,", Options.ExpID)
@@ -253,27 +261,34 @@ func TradesLoop(trades []<-chan *exchange.Trade, w io.StringWriter, wg *sync.Wai
 			Chan: reflect.ValueOf(tc),
 		}
 	}
+	var b strings.Builder
 	for len(cases) > 0 {
 		n, value, ok := reflect.Select(cases)
 		if !ok {
 			cases = append(cases[:n], cases[n+1:]...)
 			continue
 		}
-		trade := value.Interface().(*exchange.Trade)
-		w.WriteString(fmt.Sprintf("T %s%d,%s,%s,%s,%s,%s,%s\n",
-			exp,
-			trade.Timestamp.UnixMilli(),
-			trade.Timestamp.Format("2006-01-02 15:04:05.000"),
-			trade.Exchange,
-			strings.ToUpper(trade.Symbol),
-			func() string {
-				if trade.Maker == exchange.Ask {
-					return "BUY"
-				}
-				return "SELL"
-			}(),
-			trade.Price,
-			trade.Quantity))
+		b.Reset()
+		for _, trade := range value.Interface().([]*exchange.Trade) {
+			fmt.Fprintf(&b, "T %s%d,%s,%s,%s,%d,%d,%d,%s,%s,%s\n",
+				exp,
+				trade.Timestamp.UnixMilli(),
+				trade.Timestamp.Format("2006-01-02 15:04:05.000"),
+				trade.Exchange,
+				strings.ToUpper(trade.Symbol),
+				trade.TradeID,
+				trade.BuyOrderID,
+				trade.SellOrderID,
+				func() string {
+					if trade.Taker == exchange.Buy {
+						return "BUY"
+					}
+					return "SELL"
+				}(),
+				trade.Price,
+				trade.Quantity)
+		}
+		w.WriteString(b.String())
 	}
 	wg.Done()
 }

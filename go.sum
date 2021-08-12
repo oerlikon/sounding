@@ -11,8 +11,8 @@ github.com/mattn/go-shellwords v1.0.12 h1:M2zGm7EW6UQJvDeQxo4T51eKPurbeFbe8WtebG
 github.com/mattn/go-shellwords v1.0.12/go.mod h1:EZzvwXDESEeg03EKmM+RmDnNOPKG4lLtQsUlTZDWQ8Y=
 github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db h1:62I3jR2EmQ4l5rM/4FEfDWcRD+abF5XlKShorW5LRoQ=
 github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db/go.mod h1:l0dey0ia/Uv7NcFFVbCLtqEBQbrT4OCwCSKTEv6enCw=
-github.com/oerlikon/fastjson v1.6.3-patch1 h1:mfoHGKSErC5ZNlz4H7ktfL0VyZs7tqciULDTJSudwvw=
-github.com/oerlikon/fastjson v1.6.3-patch1/go.mod h1:CLCAqky6SMuOcxStkYQvblddUtoRxhYMGLrsQns1aXY=
+github.com/oerlikon/fastjson v1.6.3-patch3 h1:4Yfbv1qMlYxKcUwMkkNksy4WjYXZ2INj7bLKpEZOfdk=
+github.com/oerlikon/fastjson v1.6.3-patch3/go.mod h1:CLCAqky6SMuOcxStkYQvblddUtoRxhYMGLrsQns1aXY=
 github.com/oerlikon/progressbar/v3 v3.8.2-patch2 h1:r2qLtjm92CYrQP3BgSC2i0UUUZs/3+V1dKm+3lhN0Yg=
 github.com/oerlikon/progressbar/v3 v3.8.2-patch2/go.mod h1:/aSF3OZGS2a55LlOb7fCpdHue8v7xF3htc4Lr3bj9/0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

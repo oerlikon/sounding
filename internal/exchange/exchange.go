@@ -16,11 +16,11 @@ type Listener interface {
 	Start(ctx context.Context) error
 
 	Book() <-chan *BookUpdate
-	Trades() <-chan *Trade
+	Trades() <-chan []*Trade
 }
 
 //
-// Side
+// Sides
 
 type Side int
 
@@ -33,7 +33,7 @@ const (
 )
 
 //
-// BookUpdate
+// Book
 
 type BookUpdate struct {
 	Exchange string
@@ -68,5 +68,5 @@ type Trade struct {
 
 	Price    string
 	Quantity string
-	Maker    Side
+	Taker    Side
 }

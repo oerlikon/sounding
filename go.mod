@@ -16,6 +16,6 @@ require (
 
 replace (
 	github.com/schollz/progressbar/v3 => github.com/oerlikon/progressbar/v3 v3.8.2-patch2
-	github.com/valyala/fastjson => github.com/oerlikon/fastjson v1.6.3-patch1
+	github.com/valyala/fastjson => github.com/oerlikon/fastjson v1.6.3-patch3
 	gopkg.in/yaml.v2 => github.com/oerlikon/yaml/v2 v2.4.0-patch1
 )
