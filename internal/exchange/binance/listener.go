@@ -15,7 +15,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/valyala/fastjson"
 
-	. "sounding/internal/common/timestamp"
+	"sounding/internal/common/timestamp"
 	"sounding/internal/exchange"
 )
 
@@ -53,7 +53,7 @@ func NewListener(symbol string, options ...exchange.Option) exchange.Listener {
 			err = o(&opts.Options)
 		}
 		if err != nil {
-			panic("unknown error setting options")
+			panic("binance: unknown error setting options")
 		}
 	}
 	return &Listener{
@@ -153,13 +153,13 @@ func (l *Listener) Trades() <-chan []*exchange.Trade {
 
 func (l *Listener) err(err error) {
 	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Error:", err)
+		l.opts.Logger.Println("Error: binance:", err)
 	}
 }
 
 func (l *Listener) warn(err error) {
 	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Warning:", err)
+		l.opts.Logger.Println("Warning: binance:", err)
 	}
 }
 
@@ -239,7 +239,7 @@ func (l *Listener) fetchDepthSnapshot() {
 		l.err(err)
 		return
 	}
-	received := Stamp(time.Now())
+	received := timestamp.Stamp(time.Now())
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -268,7 +268,7 @@ func (l *Listener) fetchDepthSnapshot() {
 }
 
 func (l *Listener) process(msg []byte) error {
-	received := Stamp(time.Now())
+	received := timestamp.Stamp(time.Now())
 	v, err := l.parser.ParseBytes(msg)
 	if err != nil {
 		return err
@@ -361,7 +361,7 @@ func (l *Listener) parseDepthUpdate(v *fastjson.Value) *DepthUpdateMessage {
 	}
 
 	return &DepthUpdateMessage{
-		Timestamp: Milli(v.GetInt64("E")),
+		Timestamp: timestamp.Milli(v.GetInt64("E")),
 		FirstID:   firstID,
 		FinalID:   finalID,
 		Bids:      bids,
@@ -386,8 +386,8 @@ func (l *Listener) sendDepthUpdate(du *DepthUpdateMessage) {
 
 func (l *Listener) parseTrade(v *fastjson.Value) *TradeMessage {
 	return &TradeMessage{
-		Timestamp:   Milli(v.GetInt64("E")),
-		Occurred:    Milli(v.GetInt64("T")),
+		Timestamp:   timestamp.Milli(v.GetInt64("E")),
+		Occurred:    timestamp.Milli(v.GetInt64("T")),
 		TradeID:     v.GetInt64("t"),
 		BuyOrderID:  v.GetInt64("b"),
 		SellOrderID: v.GetInt64("a"),

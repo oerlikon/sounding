@@ -1,24 +1,24 @@
 package bitfinex
 
 import (
-	. "sounding/internal/common/timestamp"
+	"sounding/internal/common/timestamp"
 	"sounding/internal/exchange"
 )
 
 const exchName = "Bitfinex"
 
 type BookUpdateMessage struct {
-	Timestamp Timestamp
-	Received  Timestamp
+	Timestamp timestamp.Timestamp
+	Received  timestamp.Timestamp
 
 	Bids []exchange.PriceLevelUpdate
 	Asks []exchange.PriceLevelUpdate
 }
 
 type TradeMessage struct {
-	Timestamp Timestamp
-	Received  Timestamp
-	Occurred  Timestamp
+	Timestamp timestamp.Timestamp
+	Received  timestamp.Timestamp
+	Occurred  timestamp.Timestamp
 
 	TradeID int64
 

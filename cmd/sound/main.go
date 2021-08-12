@@ -151,6 +151,8 @@ func run() (err error, ret int) {
 		go TradesLoop(Trades(listeners), writer, &wg)
 	}
 
+	stderr.Print("Listening...")
+
 	mu.Unlock()
 
 	wg.Wait()

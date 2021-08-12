@@ -1,15 +1,15 @@
 package binance
 
 import (
-	. "sounding/internal/common/timestamp"
+	"sounding/internal/common/timestamp"
 	"sounding/internal/exchange"
 )
 
 const exchName = "Binance"
 
 type DepthUpdateMessage struct {
-	Timestamp Timestamp
-	Received  Timestamp
+	Timestamp timestamp.Timestamp
+	Received  timestamp.Timestamp
 
 	FirstID int64
 	FinalID int64
@@ -19,9 +19,9 @@ type DepthUpdateMessage struct {
 }
 
 type TradeMessage struct {
-	Timestamp Timestamp
-	Received  Timestamp
-	Occurred  Timestamp
+	Timestamp timestamp.Timestamp
+	Received  timestamp.Timestamp
+	Occurred  timestamp.Timestamp
 
 	TradeID     int64
 	BuyOrderID  int64

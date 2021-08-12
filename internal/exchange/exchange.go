@@ -2,8 +2,7 @@ package exchange
 
 import (
 	"context"
-
-	. "sounding/internal/common/timestamp"
+	"sounding/internal/common/timestamp"
 )
 
 //
@@ -39,8 +38,8 @@ type BookUpdate struct {
 	Exchange string
 	Symbol   string
 
-	Timestamp Timestamp
-	Received  Timestamp
+	Timestamp timestamp.Timestamp
+	Received  timestamp.Timestamp
 
 	Bids []PriceLevelUpdate
 	Asks []PriceLevelUpdate
@@ -58,9 +57,9 @@ type Trade struct {
 	Exchange string
 	Symbol   string
 
-	Timestamp Timestamp
-	Received  Timestamp
-	Occurred  Timestamp
+	Timestamp timestamp.Timestamp
+	Received  timestamp.Timestamp
+	Occurred  timestamp.Timestamp
 
 	TradeID     int64
 	BuyOrderID  int64

@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/valyala/fastjson"
 
-	. "sounding/internal/common/timestamp"
+	"sounding/internal/common/timestamp"
 	"sounding/internal/exchange"
 )
 
@@ -56,7 +56,7 @@ func NewListener(symbol string, options ...exchange.Option) exchange.Listener {
 			err = o(&opts.Options)
 		}
 		if err != nil {
-			panic("unknown error setting options")
+			panic("bitfinex: unknown error setting options")
 		}
 	}
 	return &Listener{
@@ -159,13 +159,13 @@ func (l *Listener) Trades() <-chan []*exchange.Trade {
 
 func (l *Listener) err(err error) {
 	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Error:", err)
+		l.opts.Logger.Println("Error: bitfinex:", err)
 	}
 }
 
 func (l *Listener) warn(err error) {
 	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Warning:", err)
+		l.opts.Logger.Println("Warning: bitfinex:", err)
 	}
 }
 
@@ -259,7 +259,7 @@ func (l *Listener) unsubscribeTrades() {
 }
 
 func (l *Listener) process(msg []byte) error {
-	received := Stamp(time.Now())
+	received := timestamp.Stamp(time.Now())
 	v, err := l.parser.ParseBytes(msg)
 	if err != nil {
 		return err
@@ -271,7 +271,7 @@ func (l *Listener) process(msg []byte) error {
 			panic("bitfinex: len([...]) < 4")
 		}
 
-		seq, timestamp := arr[n-2].GetInt64(), Milli(arr[n-1].GetInt64())
+		seq, timestamp := arr[n-2].GetInt64(), timestamp.Milli(arr[n-1].GetInt64())
 		if seq != l.nextSeq && l.nextSeq != 0 {
 			l.err(fmt.Errorf("missing messages %d..%d", l.nextSeq, seq))
 		}
@@ -329,7 +329,7 @@ func (l *Listener) process(msg []byte) error {
 		case bytes.Compare(channel, []byte("trades")) == 0:
 			l.trades.chanID.Store(v.GetInt64("chanId"))
 		default:
-			return fmt.Errorf("bitfinex: subscribed unexpected channel %s", string(channel))
+			return fmt.Errorf("subscribed unexpected channel %s", string(channel))
 		}
 		return nil
 	}
@@ -420,7 +420,7 @@ func (l *Listener) parseTradeSnapshot(v *fastjson.Value) []*TradeMessage {
 			amount, buy = amount[1:], false
 		}
 		trades[i] = &TradeMessage{
-			Occurred: Milli(t.GetArray()[1].GetInt64()),
+			Occurred: timestamp.Milli(t.GetArray()[1].GetInt64()),
 			TradeID:  t.GetArray()[0].GetInt64(),
 			Price:    t.GetArray()[3].S(),
 			Amount:   amount,
@@ -437,7 +437,7 @@ func (l *Listener) parseTrade(v *fastjson.Value) []*TradeMessage {
 	}
 	return []*TradeMessage{
 		&TradeMessage{
-			Occurred: Milli(v.GetArray()[1].GetInt64()),
+			Occurred: timestamp.Milli(v.GetArray()[1].GetInt64()),
 			TradeID:  v.GetArray()[0].GetInt64(),
 			Price:    v.GetArray()[3].S(),
 			Amount:   amount,
