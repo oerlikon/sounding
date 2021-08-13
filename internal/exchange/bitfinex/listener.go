@@ -368,22 +368,41 @@ func (l *Listener) parseBookSnapshot(v *fastjson.Value) *BookUpdateMessage {
 
 func (l *Listener) parseBookUpdate(v *fastjson.Value) *BookUpdateMessage {
 	var bids, asks []exchange.PriceLevelUpdate
-	if pq := v.GetArray(); pq != nil {
-		p := pq[0].S()
-		q := pq[2].S()
-		if q[0] != '-' { // Bid
-			bids = []exchange.PriceLevelUpdate{
-				exchange.PriceLevelUpdate{
-					Price:    p,
-					Quantity: q,
-				},
+	if pcq := v.GetArray(); pcq != nil {
+		p, c, q := pcq[0].S(), pcq[1].GetInt(), pcq[2].S()
+		if c > 0 {
+			// Update price level.
+			if q[0] != '-' { // Bid
+				bids = []exchange.PriceLevelUpdate{
+					exchange.PriceLevelUpdate{
+						Price:    p,
+						Quantity: q,
+					},
+				}
+			} else {
+				asks = []exchange.PriceLevelUpdate{
+					exchange.PriceLevelUpdate{
+						Price:    p,
+						Quantity: q[1:],
+					},
+				}
 			}
 		} else {
-			asks = []exchange.PriceLevelUpdate{
-				exchange.PriceLevelUpdate{
-					Price:    p,
-					Quantity: q[1:],
-				},
+			// Remove price level.
+			if q[0] != '-' { // Bid
+				bids = []exchange.PriceLevelUpdate{
+					exchange.PriceLevelUpdate{
+						Price:    p,
+						Quantity: "0",
+					},
+				}
+			} else {
+				asks = []exchange.PriceLevelUpdate{
+					exchange.PriceLevelUpdate{
+						Price:    p,
+						Quantity: "0",
+					},
+				}
 			}
 		}
 	}
