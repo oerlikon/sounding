@@ -1,12 +1,10 @@
-package binance
+package kraken
 
 import (
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,12 +12,13 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/valyala/fastjson"
+	"github.com/valyala/fastjson/fastfloat"
 
 	"sounding/internal/common/timestamp"
 	"sounding/internal/exchange"
 )
 
-var serverURL = "wss://stream.binance.com:9443/stream"
+var serverURL = "wss://ws.kraken.com"
 
 type Listener struct {
 	symbol string
@@ -31,16 +30,18 @@ type Listener struct {
 	ws     *websocket.Conn
 	parser fastjson.Parser
 
-	depth struct {
-		nextID   int64
-		updates  []*DepthUpdateMessage
-		snapshot atomic.Value
-		started  bool
+	book struct {
+		channelName atomic.Value
+		started     bool
+	}
+
+	trade struct {
+		channelName atomic.Value
 	}
 
 	subscribed struct {
 		mu    sync.Mutex
-		depth bool
+		book  bool
 		trade bool
 	}
 }
@@ -53,7 +54,7 @@ func NewListener(symbol string, options ...exchange.Option) exchange.Listener {
 			err = o(&opts.Options)
 		}
 		if err != nil {
-			panic("binance: unknown error setting options")
+			panic("kraken: unknown error setting options")
 		}
 	}
 	return &Listener{
@@ -72,7 +73,7 @@ func (l *Listener) Symbol() string {
 
 func (l *Listener) Start(ctx context.Context) error {
 	if l.opts.Logger != nil {
-		l.opts.Logger.Printf("Starting listener binance:%s", l.symbol)
+		l.opts.Logger.Printf("Starting listener kraken:%s", l.symbol)
 	}
 	ws, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
 	if err != nil {
@@ -124,12 +125,11 @@ func (l *Listener) Book() <-chan *exchange.BookUpdate {
 	if bookCh := l.bookCh.Load(); bookCh != nil {
 		return bookCh.(chan *exchange.BookUpdate)
 	}
-	if !l.subscribed.depth {
-		if err := l.subscribeDepth(); err != nil {
+	if !l.subscribed.book {
+		if err := l.subscribeBook(); err != nil {
 			l.err(err)
 			return nil
 		}
-		go l.fetchDepthSnapshot()
 	}
 	bookCh := make(chan *exchange.BookUpdate, 1)
 	l.bookCh.Store(bookCh)
@@ -153,13 +153,13 @@ func (l *Listener) Trades() <-chan []*exchange.Trade {
 
 func (l *Listener) err(err error) {
 	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Error: binance:", err)
+		l.opts.Logger.Println("Error: kraken:", err)
 	}
 }
 
 func (l *Listener) warn(err error) {
 	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Warning: binance:", err)
+		l.opts.Logger.Println("Warning: kraken:", err)
 	}
 }
 
@@ -167,35 +167,36 @@ func (l *Listener) sendWsMessage(msg string) error {
 	return l.ws.WriteMessage(websocket.TextMessage, []byte(msg))
 }
 
-func (l *Listener) subscribeDepth() error {
+func (l *Listener) subscribeBook() error {
 	l.subscribed.mu.Lock()
 	defer l.subscribed.mu.Unlock()
 
-	if l.subscribed.depth {
+	if l.subscribed.book {
 		return nil
 	}
-	msg := fmt.Sprintf(`{"method":"SUBSCRIBE","params":["%s@depth"],"id":1}`,
-		strings.ToLower(l.symbol))
+	msg := fmt.Sprintf(`{"event":"subscribe","pair":["%s"],"subscription":{"name":"book","depth":100}}`,
+		strings.ToUpper(l.symbol))
 	if err := l.sendWsMessage(msg); err != nil {
 		return err
 	}
-	l.subscribed.depth = true
+	l.subscribed.book = true
 	return nil
 }
 
-func (l *Listener) unsubscribeDepth() {
+func (l *Listener) unsubscribeBook() {
 	l.subscribed.mu.Lock()
 	defer l.subscribed.mu.Unlock()
 
-	if !l.subscribed.depth {
+	if !l.subscribed.book {
 		return
 	}
-	msg := fmt.Sprintf(`{"method":"UNSUBSCRIBE","params":["%s@depth"],"id":1}`,
-		strings.ToLower(l.symbol))
+	msg := fmt.Sprintf(`{"event":"unsubscribe","pair":["%s"],"subscription":{"name":"book","depth":100}}`,
+		strings.ToUpper(l.symbol))
 	if err := l.sendWsMessage(msg); err != nil {
 		return
 	}
-	l.subscribed.depth = false
+	l.book.channelName = atomic.Value{}
+	l.subscribed.book = false
 	return
 }
 
@@ -206,8 +207,8 @@ func (l *Listener) subscribeTrade() error {
 	if l.subscribed.trade {
 		return nil
 	}
-	msg := fmt.Sprintf(`{"method":"SUBSCRIBE","params":["%s@trade"],"id":2}`,
-		strings.ToLower(l.symbol))
+	msg := fmt.Sprintf(`{"event":"subscribe","pair":["%s"],"subscription":{"name":"trade"}}`,
+		strings.ToUpper(l.symbol))
 	if err := l.sendWsMessage(msg); err != nil {
 		return err
 	}
@@ -222,49 +223,14 @@ func (l *Listener) unsubscribeTrade() {
 	if !l.subscribed.trade {
 		return
 	}
-	msg := fmt.Sprintf(`{"method":"UNSUBSCRIBE","params":["%s@trade"],"id":2}`,
-		strings.ToLower(l.symbol))
+	msg := fmt.Sprintf(`{"event":"unsubscribe","pair":["%s"],"subscription":{"name":"trade"}}`,
+		strings.ToUpper(l.symbol))
 	if err := l.sendWsMessage(msg); err != nil {
 		return
 	}
+	l.trade.channelName = atomic.Value{}
 	l.subscribed.trade = false
 	return
-}
-
-func (l *Listener) fetchDepthSnapshot() {
-	url := fmt.Sprintf("https://api.binance.com/api/v3/depth?symbol=%s&limit=1000",
-		strings.ToUpper(l.symbol))
-	resp, err := http.Get(url)
-	if err != nil {
-		l.err(err)
-		return
-	}
-	received := timestamp.Stamp(time.Now())
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		l.err(err)
-		return
-	}
-
-	if bytes.Index(body, []byte("Illegal")) >= 0 {
-		l.err(errors.New(string(body)))
-		return
-	}
-	if bytes.Index(body, []byte("Invalid")) >= 0 {
-		l.err(errors.New(string(body)))
-		return
-	}
-
-	var parser fastjson.Parser
-	v, err := parser.ParseBytes(body)
-	if err != nil {
-		l.err(err)
-		return
-	}
-	ds := l.parseDepthSnapshot(v)
-	ds.Timestamp, ds.Received = received, received
-	l.depth.snapshot.Store(ds)
 }
 
 func (l *Listener) process(msg []byte) error {
@@ -273,38 +239,51 @@ func (l *Listener) process(msg []byte) error {
 	if err != nil {
 		return err
 	}
-	if stream := v.GetStringBytes("stream"); stream != nil {
-		if bytes.HasSuffix(stream, []byte("depth")) {
-			du := l.parseDepthUpdate(v.Get("data"))
-			du.Received = received
-
-			if l.depth.started {
-				l.sendDepthUpdate(du)
-				return nil
+	if arr, err := v.Array(); err == nil {
+		channelName := arr[2].S()
+		if name, ok := l.book.channelName.Load().(string); ok && name == channelName {
+			var bu *BookUpdateMessage
+			if l.book.started {
+				bu = l.parseBookUpdate(arr[1])
+			} else {
+				bu = l.parseBookSnapshot(arr[1])
+				l.book.started = true
 			}
-			l.depth.updates = append(l.depth.updates, du)
-			if depthSnapshot := l.depth.snapshot.Load(); depthSnapshot != nil {
-				ds := depthSnapshot.(*DepthUpdateMessage)
-				l.sendDepthUpdate(ds)
-				for _, du := range l.depth.updates {
-					if du.FinalID < ds.FinalID+1 {
-						continue
-					}
-					l.sendDepthUpdate(du)
-				}
-				l.depth.updates, l.depth.snapshot = nil, atomic.Value{}
-				l.depth.started = true
-			}
+			bu.Timestamp, bu.Received = received, received
+			l.sendBookUpdate(bu)
 			return nil
 		}
-		if bytes.HasSuffix(stream, []byte("trade")) {
-			trade := l.parseTrade(v.Get("data"))
-			trade.Received = received
-			l.sendTrade(trade)
+		if name, ok := l.trade.channelName.Load().(string); ok && name == channelName {
+			tu := l.parseTrade(arr[1])
+			for i := range tu {
+				tu[i].Timestamp, tu[i].Received = received, received
+			}
+			l.sendTrades(tu)
+			return nil
+		}
+		return nil
+	}
+	event := v.GetStringBytes("event")
+	if bytes.Compare(event, []byte("subscriptionStatus")) == 0 {
+		status := v.GetStringBytes("status")
+		if bytes.Compare(status, []byte("subscribed")) == 0 {
+			channel := v.GetStringBytes("subscription", "name")
+			channelName := v.Get("channelName").S()
+			switch {
+			case bytes.Compare(channel, []byte("book")) == 0:
+				l.book.channelName.Store(channelName)
+			case bytes.Compare(channel, []byte("trade")) == 0:
+				l.trade.channelName.Store(channelName)
+			default:
+				return fmt.Errorf("subscribed unexpected channel %s", channelName)
+			}
 			return nil
 		}
 	}
-	if result := v.Get("result"); result != nil {
+	if bytes.Compare(event, []byte("heartbeat")) == 0 {
+		return nil
+	}
+	if bytes.Compare(event, []byte("systemStatus")) == 0 {
 		return nil
 	}
 	if bytes.Index(msg, []byte("error")) >= 0 {
@@ -314,39 +293,31 @@ func (l *Listener) process(msg []byte) error {
 	return nil
 }
 
-func (l *Listener) parseDepthSnapshot(v *fastjson.Value) *DepthUpdateMessage {
+func (l *Listener) parseBookSnapshot(v *fastjson.Value) *BookUpdateMessage {
 	var bids, asks []exchange.PriceLevelUpdate
 
-	if b := v.GetArray("bids"); b != nil {
-		bids = make([]exchange.PriceLevelUpdate, len(b))
-		for i, pq := range b {
+	if bs := v.GetArray("bs"); bs != nil {
+		bids = make([]exchange.PriceLevelUpdate, len(bs))
+		for i, pq := range bs {
 			bids[i].Price = pq.GetArray()[0].S()
 			bids[i].Quantity = pq.GetArray()[1].S()
 		}
 	}
-	if a := v.GetArray("asks"); a != nil {
-		asks = make([]exchange.PriceLevelUpdate, len(a))
-		for i, pq := range a {
+	if as := v.GetArray("as"); as != nil {
+		asks = make([]exchange.PriceLevelUpdate, len(as))
+		for i, pq := range as {
 			asks[i].Price = pq.GetArray()[0].S()
 			asks[i].Quantity = pq.GetArray()[1].S()
 		}
 	}
 
-	return &DepthUpdateMessage{
-		FinalID: v.GetInt64("lastUpdateId"),
-		Bids:    bids,
-		Asks:    asks,
+	return &BookUpdateMessage{
+		Bids: bids,
+		Asks: asks,
 	}
 }
 
-func (l *Listener) parseDepthUpdate(v *fastjson.Value) *DepthUpdateMessage {
-	firstID, finalID := v.GetInt64("U"), v.GetInt64("u")
-	if l.depth.nextID != 0 && l.depth.nextID != firstID {
-		l.warn(fmt.Errorf("missing depth updates %d:%d",
-			l.depth.nextID, firstID))
-	}
-	l.depth.nextID = finalID + 1
-
+func (l *Listener) parseBookUpdate(v *fastjson.Value) *BookUpdateMessage {
 	var bids, asks []exchange.PriceLevelUpdate
 
 	if b := v.GetArray("b"); b != nil {
@@ -364,16 +335,13 @@ func (l *Listener) parseDepthUpdate(v *fastjson.Value) *DepthUpdateMessage {
 		}
 	}
 
-	return &DepthUpdateMessage{
-		Timestamp: timestamp.Milli(v.GetInt64("E")),
-		FirstID:   firstID,
-		FinalID:   finalID,
-		Bids:      bids,
-		Asks:      asks,
+	return &BookUpdateMessage{
+		Bids: bids,
+		Asks: asks,
 	}
 }
 
-func (l *Listener) sendDepthUpdate(du *DepthUpdateMessage) {
+func (l *Listener) sendBookUpdate(bu *BookUpdateMessage) {
 	bookCh := l.bookCh.Load()
 	if bookCh == nil {
 		return
@@ -381,59 +349,69 @@ func (l *Listener) sendDepthUpdate(du *DepthUpdateMessage) {
 	bookCh.(chan *exchange.BookUpdate) <- &exchange.BookUpdate{
 		Exchange:  exchName,
 		Symbol:    l.symbol,
-		Timestamp: du.Timestamp,
-		Received:  du.Received,
-		Bids:      du.Bids,
-		Asks:      du.Asks,
+		Timestamp: bu.Timestamp,
+		Received:  bu.Received,
+		Bids:      bu.Bids,
+		Asks:      bu.Asks,
 	}
 }
 
-func (l *Listener) parseTrade(v *fastjson.Value) *TradeMessage {
-	return &TradeMessage{
-		Timestamp:   timestamp.Milli(v.GetInt64("E")),
-		Occurred:    timestamp.Milli(v.GetInt64("T")),
-		TradeID:     v.GetInt64("t"),
-		BuyOrderID:  v.GetInt64("b"),
-		SellOrderID: v.GetInt64("a"),
-		Price:       v.Get("p").S(),
-		Quantity:    v.Get("q").S(),
-		MakerBuy:    v.GetBool("m"),
+func (l *Listener) parseTrade(v *fastjson.Value) []*TradeMessage {
+	tt := v.GetArray()
+	if len(tt) == 0 {
+		return nil
 	}
+	trades := make([]*TradeMessage, len(tt))
+	for i, t := range tt {
+		var taker exchange.Side
+		switch s := t.GetArray()[3].S(); s {
+		case "b":
+			taker = exchange.Buy
+		case "s":
+			taker = exchange.Sell
+		default:
+			panic(fmt.Sprintf("kraken: unexpected taker '%s'", s))
+		}
+		trades[i] = &TradeMessage{
+			Occurred: timestamp.FloatMilli(fastfloat.ParseBestEffort(t.GetArray()[2].S())),
+			Price:    t.GetArray()[0].S(),
+			Volume:   t.GetArray()[1].S(),
+			Taker:    taker,
+		}
+	}
+	return trades
 }
 
-func (l *Listener) sendTrade(trade *TradeMessage) {
+func (l *Listener) sendTrades(trades []*TradeMessage) {
 	tradesCh := l.tradesCh.Load()
 	if tradesCh == nil {
 		return
 	}
-	tradesCh.(chan []*exchange.Trade) <- []*exchange.Trade{
-		&exchange.Trade{
-			Exchange:    exchName,
-			Symbol:      l.symbol,
-			Timestamp:   trade.Timestamp,
-			Received:    trade.Received,
-			Occurred:    trade.Occurred,
-			TradeID:     trade.TradeID,
-			BuyOrderID:  trade.BuyOrderID,
-			SellOrderID: trade.SellOrderID,
-			Price:       trade.Price,
-			Quantity:    trade.Quantity,
-			Taker: func() exchange.Side {
-				if trade.MakerBuy {
-					return exchange.Sell
-				}
-				return exchange.Buy
-			}(),
-		},
+	if len(trades) == 0 {
+		return
 	}
+	tt := make([]*exchange.Trade, len(trades))
+	for i, trade := range trades {
+		tt[i] = &exchange.Trade{
+			Exchange:  exchName,
+			Symbol:    l.symbol,
+			Timestamp: trade.Timestamp,
+			Received:  trade.Received,
+			Occurred:  trade.Occurred,
+			Price:     trade.Price,
+			Quantity:  trade.Volume,
+			Taker:     trade.Taker,
+		}
+	}
+	tradesCh.(chan []*exchange.Trade) <- tt
 }
 
 func (l *Listener) shutdown() {
 	if l.opts.Logger != nil {
-		l.opts.Logger.Printf("Stopping listener binance:%s", l.symbol)
+		l.opts.Logger.Printf("Stopping listener kraken:%s", l.symbol)
 	}
 	if bookCh := l.bookCh.Load(); bookCh != nil {
-		l.unsubscribeDepth()
+		l.unsubscribeBook()
 		close(bookCh.(chan *exchange.BookUpdate))
 		l.bookCh = atomic.Value{}
 	}

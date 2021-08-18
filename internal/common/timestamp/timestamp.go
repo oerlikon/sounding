@@ -15,6 +15,14 @@ func Milli(ms int64) Timestamp {
 	return Timestamp(ms * 1_000_000)
 }
 
+func Float(s float64) Timestamp {
+	return Timestamp(s * 1_000_000_000)
+}
+
+func FloatMilli(ms float64) Timestamp {
+	return Timestamp(ms * 1_000_000)
+}
+
 func (t Timestamp) Time() time.Time {
 	return time.Unix(0, int64(t)).UTC()
 }

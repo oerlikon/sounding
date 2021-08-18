@@ -19,6 +19,7 @@ import (
 	"sounding/internal/exchange"
 	"sounding/internal/exchange/binance"
 	"sounding/internal/exchange/bitfinex"
+	"sounding/internal/exchange/kraken"
 	"sounding/internal/mainutil"
 )
 
@@ -42,7 +43,7 @@ func init() {
 	flags.SetOutput(io.Discard)
 }
 
-var exchanges = []string{"binance", "bitfinex", "huobi", "kraken"}
+var exchanges = []string{"binance", "bitfinex", "kraken", "huobi"}
 
 func run() (err error, ret int) {
 	if err := mainutil.ParseArgs(&flags); err != nil {
@@ -103,8 +104,10 @@ func run() (err error, ret int) {
 		case "bitfinex":
 			listeners = append(listeners, bitfinex.NewListener(symbol,
 				exchange.OptionLogger(stderr)))
-		case "huobi":
 		case "kraken":
+			listeners = append(listeners, kraken.NewListener(symbol,
+				exchange.OptionLogger(stderr)))
+		case "huobi":
 		}
 	}
 

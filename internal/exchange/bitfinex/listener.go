@@ -271,7 +271,7 @@ func (l *Listener) process(msg []byte) error {
 			panic("bitfinex: len([...]) < 4")
 		}
 
-		seq, timestamp := arr[n-2].GetInt64(), timestamp.Milli(arr[n-1].GetInt64())
+		seq, ts := arr[n-2].GetInt64(), timestamp.Milli(arr[n-1].GetInt64())
 		if seq != l.nextSeq && l.nextSeq != 0 {
 			l.err(fmt.Errorf("missing messages %d..%d", l.nextSeq, seq))
 		}
@@ -290,7 +290,7 @@ func (l *Listener) process(msg []byte) error {
 				bu = l.parseBookSnapshot(arr[1])
 				l.book.started = true
 			}
-			bu.Timestamp, bu.Received = timestamp, received
+			bu.Timestamp, bu.Received = ts, received
 			l.sendBookUpdate(bu)
 			return nil
 		}
@@ -309,10 +309,10 @@ func (l *Listener) process(msg []byte) error {
 				l.trades.started = true
 			}
 			if len(tu) == 1 {
-				tu[0].Timestamp, tu[0].Received = timestamp, received
+				tu[0].Timestamp, tu[0].Received = ts, received
 			} else {
 				for i := range tu {
-					tu[i].Timestamp, tu[i].Received = timestamp, received
+					tu[i].Timestamp, tu[i].Received = ts, received
 				}
 			}
 			l.sendTrades(tu)
@@ -333,9 +333,16 @@ func (l *Listener) process(msg []byte) error {
 		}
 		return nil
 	}
+	if bytes.Compare(event, []byte("info")) == 0 {
+		return nil
+	}
+	if bytes.Compare(event, []byte("conf")) == 0 {
+		return nil
+	}
 	if bytes.Index(msg, []byte("error")) >= 0 {
 		return errors.New(string(msg))
 	}
+	l.warn(errors.New(string(msg)))
 	return nil
 }
 
