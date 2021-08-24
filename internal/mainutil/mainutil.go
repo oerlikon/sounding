@@ -64,7 +64,7 @@ func ParseArgs(flags *flag.FlagSet) error {
 	return flags.Parse(argv)
 }
 
-func ParseTimeArg(s string) (t time.Time, err error) {
+func ParseTime(s string) (t time.Time, err error) {
 	if s == "" || s == "-" || s == "0" {
 		return time.Time{}, nil
 	}

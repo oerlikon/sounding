@@ -1,7 +1,6 @@
 package mainutil
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -47,7 +46,7 @@ func nz(v interface{}, _ string) error {
 		panic("mainutil.Validate: unsupported type")
 	}
 	if !valid {
-		return errors.New("")
+		return fmt.Errorf("")
 	}
 	return nil
 }

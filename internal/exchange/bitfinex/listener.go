@@ -266,11 +266,6 @@ func (l *Listener) process(msg []byte) error {
 	}
 	if arr, err := v.Array(); err == nil {
 		n := len(arr)
-		if n < 4 {
-			l.err(errors.New(string(msg)))
-			panic("bitfinex: len([...]) < 4")
-		}
-
 		seq, ts := arr[n-2].GetInt64(), timestamp.Milli(arr[n-1].GetInt64())
 		if seq != l.nextSeq && l.nextSeq != 0 {
 			l.err(fmt.Errorf("missing messages %d..%d", l.nextSeq, seq))
