@@ -38,8 +38,8 @@ type BookUpdate struct {
 	Exchange string
 	Symbol   string
 
-	Timestamp timestamp.Timestamp
-	Received  timestamp.Timestamp
+	Timestamp timestamp.T
+	Received  timestamp.T
 
 	Bids []PriceLevelUpdate
 	Asks []PriceLevelUpdate
@@ -57,9 +57,9 @@ type Trade struct {
 	Exchange string
 	Symbol   string
 
-	Timestamp timestamp.Timestamp
-	Received  timestamp.Timestamp
-	Occurred  timestamp.Timestamp
+	Timestamp timestamp.T
+	Received  timestamp.T
+	Occurred  timestamp.T
 
 	TradeID     int64
 	BuyOrderID  int64

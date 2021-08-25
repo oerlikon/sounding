@@ -6,8 +6,8 @@ import (
 )
 
 type DepthUpdateMessage struct {
-	Timestamp timestamp.Timestamp
-	Received  timestamp.Timestamp
+	Timestamp timestamp.T
+	Received  timestamp.T
 
 	FirstID int64
 	FinalID int64
@@ -17,9 +17,9 @@ type DepthUpdateMessage struct {
 }
 
 type TradeMessage struct {
-	Timestamp timestamp.Timestamp
-	Received  timestamp.Timestamp
-	Occurred  timestamp.Timestamp
+	Timestamp timestamp.T
+	Received  timestamp.T
+	Occurred  timestamp.T
 
 	TradeID     int64
 	BuyOrderID  int64

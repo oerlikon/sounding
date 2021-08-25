@@ -6,17 +6,17 @@ import (
 )
 
 type BookUpdateMessage struct {
-	Timestamp timestamp.Timestamp
-	Received  timestamp.Timestamp
+	Timestamp timestamp.T
+	Received  timestamp.T
 
 	Bids []exchange.PriceLevelUpdate
 	Asks []exchange.PriceLevelUpdate
 }
 
 type TradeMessage struct {
-	Timestamp timestamp.Timestamp
-	Received  timestamp.Timestamp
-	Occurred  timestamp.Timestamp
+	Timestamp timestamp.T
+	Received  timestamp.T
+	Occurred  timestamp.T
 
 	TradeID int64
 

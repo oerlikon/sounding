@@ -2,68 +2,68 @@ package timestamp
 
 import "time"
 
-type Timestamp int64
+type T int64
 
-func Stamp(t time.Time) Timestamp {
+func Stamp(t time.Time) T {
 	if t.IsZero() {
 		return 0
 	}
-	return Timestamp(t.UnixNano())
+	return T(t.UnixNano())
 }
 
-func Milli(ms int64) Timestamp {
-	return Timestamp(ms * 1e3)
+func Milli(ms int64) T {
+	return T(ms * 1e3)
 }
 
-func Micro(us int64) Timestamp {
-	return Timestamp(us * 1e6)
+func Micro(us int64) T {
+	return T(us * 1e6)
 }
 
-func Float(s float64) Timestamp {
-	return Timestamp(s * 1e9)
+func Float(s float64) T {
+	return T(s * 1e9)
 }
 
-func FloatMilli(ms float64) Timestamp {
-	return Timestamp(ms * 1e3)
+func FloatMilli(ms float64) T {
+	return T(ms * 1e3)
 }
 
-func FloatMicro(us float64) Timestamp {
-	return Timestamp(us * 1e6)
+func FloatMicro(us float64) T {
+	return T(us * 1e6)
 }
 
-func (t Timestamp) Time() time.Time {
+func (t T) Time() time.Time {
 	return time.Unix(0, int64(t)).UTC()
 }
 
-func (t Timestamp) Unix() int {
+func (t T) Unix() int {
 	return int(t / 1e9)
 }
 
-func (t Timestamp) UnixMilli() int64 {
+func (t T) UnixMilli() int64 {
 	return int64(t / 1e3)
 }
 
-func (t Timestamp) UnixMicro() int64 {
+func (t T) UnixMicro() int64 {
 	return int64(t / 1e6)
 }
 
-func (t Timestamp) UnixFloat() float64 {
+func (t T) UnixFloat() float64 {
 	return float64(t) / 1e9
 }
 
-func (t Timestamp) Add(d time.Duration) Timestamp {
-	return Timestamp(int64(t) + int64(d))
+func (t T) Add(d time.Duration) T {
+	return T(int64(t) + int64(d))
 }
 
-func (t Timestamp) Sub(u Timestamp) time.Duration {
+func (t T) Sub(u T) time.Duration {
 	return time.Duration(t - u)
 }
 
-func (t Timestamp) Format(layout string) string {
+func (t T) Format(layout string) string {
 	return t.Time().Format(layout)
 }
 
-func (t Timestamp) S() string {
+func (t T) S() string {
 	if t == 0 {
 		return "0"
 	}
