@@ -2,16 +2,13 @@ package mainutil
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/mattn/go-shellwords"
-	bar "github.com/schollz/progressbar/v3"
 	flag "github.com/spf13/pflag"
-	"golang.org/x/term"
 )
 
 func ReadAllStdin() ([]byte, error) {
@@ -83,25 +80,4 @@ func ParseTime(s string) (t time.Time, err error) {
 		}
 	}
 	return time.Parse(formats[0], s)
-}
-
-func NewProgressBar(count int, options ...bar.Option) *bar.ProgressBar {
-	return bar.NewOptions(count,
-		append([]bar.Option{
-			bar.OptionSetDescription(""),
-			bar.OptionSetWriter(os.Stderr),
-			bar.OptionSetVisibility(term.IsTerminal(int(os.Stderr.Fd()))),
-			bar.OptionSetWidth(33),
-			bar.OptionThrottle(99 * time.Millisecond),
-			bar.OptionSetTheme(bar.Theme{
-				Saucer:        "#",
-				SaucerPadding: ".",
-				BarStart:      "[",
-				BarEnd:        "]",
-			}),
-			bar.OptionSpinnerType(9),
-			bar.OptionShowCount(),
-			bar.OptionSetRenderBlankState(true),
-			bar.OptionOnCompletion(func() { fmt.Fprint(os.Stderr, "\n") }),
-		}, options...)...)
 }

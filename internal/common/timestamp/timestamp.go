@@ -12,15 +12,23 @@ func Stamp(t time.Time) Timestamp {
 }
 
 func Milli(ms int64) Timestamp {
-	return Timestamp(ms * 1_000_000)
+	return Timestamp(ms * 1e3)
+}
+
+func Micro(us int64) Timestamp {
+	return Timestamp(us * 1e6)
 }
 
 func Float(s float64) Timestamp {
-	return Timestamp(s * 1_000_000_000)
+	return Timestamp(s * 1e9)
 }
 
 func FloatMilli(ms float64) Timestamp {
-	return Timestamp(ms * 1_000_000)
+	return Timestamp(ms * 1e3)
+}
+
+func FloatMicro(us float64) Timestamp {
+	return Timestamp(us * 1e6)
 }
 
 func (t Timestamp) Time() time.Time {
@@ -28,11 +36,19 @@ func (t Timestamp) Time() time.Time {
 }
 
 func (t Timestamp) Unix() int {
-	return int(t / 1_000_000_000)
+	return int(t / 1e9)
 }
 
 func (t Timestamp) UnixMilli() int64 {
-	return int64(t / 1_000_000)
+	return int64(t / 1e3)
+}
+
+func (t Timestamp) UnixMicro() int64 {
+	return int64(t / 1e6)
+}
+
+func (t Timestamp) UnixFloat() float64 {
+	return float64(t) / 1e9
 }
 
 func (t Timestamp) Add(d time.Duration) Timestamp {

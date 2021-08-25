@@ -266,7 +266,7 @@ func (l *Listener) process(msg []byte) error {
 	}
 	if arr, err := v.Array(); err == nil {
 		n := len(arr)
-		seq, ts := arr[n-2].GetInt64(), timestamp.Milli(arr[n-1].GetInt64())
+		seq, ts := arr[n-2].GetInt64(), timestamp.Micro(arr[n-1].GetInt64())
 		if seq != l.nextSeq && l.nextSeq != 0 {
 			l.err(fmt.Errorf("missing messages %d..%d", l.nextSeq, seq))
 		}
@@ -441,7 +441,7 @@ func (l *Listener) parseTradeSnapshot(v *fastjson.Value) []*TradeMessage {
 			amount, buy = amount[1:], false
 		}
 		trades[i] = &TradeMessage{
-			Occurred: timestamp.Milli(t.GetArray()[1].GetInt64()),
+			Occurred: timestamp.Micro(t.GetArray()[1].GetInt64()),
 			TradeID:  t.GetArray()[0].GetInt64(),
 			Price:    t.GetArray()[3].S(),
 			Amount:   amount,
@@ -458,7 +458,7 @@ func (l *Listener) parseTrade(v *fastjson.Value) []*TradeMessage {
 	}
 	return []*TradeMessage{
 		&TradeMessage{
-			Occurred: timestamp.Milli(v.GetArray()[1].GetInt64()),
+			Occurred: timestamp.Micro(v.GetArray()[1].GetInt64()),
 			TradeID:  v.GetArray()[0].GetInt64(),
 			Price:    v.GetArray()[3].S(),
 			Amount:   amount,
