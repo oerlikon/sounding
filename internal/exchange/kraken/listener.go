@@ -373,7 +373,7 @@ func (l *Listener) parseTrade(v *fastjson.Value) []*TradeMessage {
 			panic(fmt.Sprintf("kraken: unexpected taker '%s'", s))
 		}
 		trades[i] = &TradeMessage{
-			Occurred: timestamp.FloatMilli(fastfloat.ParseBestEffort(t.GetArray()[2].S())),
+			Occurred: timestamp.Float(fastfloat.ParseBestEffort(t.GetArray()[2].S())),
 			Price:    t.GetArray()[0].S(),
 			Volume:   t.GetArray()[1].S(),
 			Taker:    taker,

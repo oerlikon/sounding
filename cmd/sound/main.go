@@ -68,32 +68,23 @@ func run() (err error, ret int) {
 
 	symbols := map[string]string{}
 	for _, arg := range flags.Args() {
-		if n := strings.IndexByte(arg, ':'); n >= 0 {
-			exch, sym := arg[:n], arg[n+1:]
-			if exch == "" || sym == "" {
-				return fmt.Errorf("bad arg: %s", arg), 1
-			}
-			if FindString(exchanges, exch) < 0 {
-				return fmt.Errorf("unknown exchange: %s", exch), 1
-			}
-			if symbols[exch] != "" && symbols[exch] != sym {
-				return fmt.Errorf("more than one symbol for %s: %s", exch, sym), 1
-			}
-			symbols[exch] = sym
-		} else {
-			if symbols["*"] != "" && symbols["*"] != arg {
-				return fmt.Errorf("more than one symbol for all exchanges: %s", arg), 1
-			}
-			symbols["*"] = arg
+		n := strings.IndexByte(arg, ':')
+		if n < 1 || n > len(arg)-2 {
+			return fmt.Errorf("invalid arg: %s", arg), 1
 		}
+		exch, sym := arg[:n], arg[n+1:]
+		if FindString(exchanges, exch) < 0 {
+			return fmt.Errorf("unknown exchange: %s", exch), 1
+		}
+		if symbols[exch] != "" && symbols[exch] != sym {
+			return fmt.Errorf("more than one symbol for %s: %s", exch, sym), 1
+		}
+		symbols[exch] = sym
 	}
 
 	listeners := make([]exchange.Listener, 0, len(exchanges))
 	for _, exch := range exchanges {
-		symbol, ok := symbols[exch]
-		if !ok {
-			symbol = symbols["*"]
-		}
+		symbol := symbols[exch]
 		if symbol == "" {
 			continue
 		}
@@ -277,8 +268,8 @@ func TradesLoop(trades []<-chan []*exchange.Trade, w io.StringWriter, wg *sync.W
 		for _, trade := range value.Interface().([]*exchange.Trade) {
 			fmt.Fprintf(&b, "T %s%d,%s,%s,%s,%d,%d,%d,%s,%s,%s\n",
 				exp,
-				trade.Timestamp.UnixMilli(),
-				trade.Timestamp.Format("2006-01-02 15:04:05.000"),
+				trade.Occurred.UnixMilli(),
+				trade.Occurred.Format("2006-01-02 15:04:05.000"),
 				trade.Exchange,
 				strings.ToUpper(trade.Symbol),
 				trade.TradeID,
