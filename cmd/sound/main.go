@@ -84,10 +84,7 @@ func run() (err error, ret int) {
 
 	listeners := make([]exchange.Listener, 0, len(exchanges))
 	for _, exch := range exchanges {
-		symbol, ok := symbols[exch]
-		if !ok {
-			symbol = symbols["*"]
-		}
+		symbol := symbols[exch]
 		if symbol == "" {
 			continue
 		}
@@ -208,7 +205,7 @@ func BooksLoop(books []<-chan *exchange.BookUpdate, w io.StringWriter, wg *sync.
 		for _, pl := range bu.Bids {
 			fmt.Fprintf(&b, "B %s%d,%s,%s,%s,%s,%s,%s\n",
 				exp,
-				bu.Timestamp.UnixMicro(),
+				bu.Timestamp.UnixMilli(),
 				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
 				bu.Exchange,
 				strings.ToUpper(bu.Symbol),
@@ -219,7 +216,7 @@ func BooksLoop(books []<-chan *exchange.BookUpdate, w io.StringWriter, wg *sync.
 		for _, pl := range bu.Asks {
 			fmt.Fprintf(&b, "B %s%d,%s,%s,%s,%s,%s,%s\n",
 				exp,
-				bu.Timestamp.UnixMicro(),
+				bu.Timestamp.UnixMilli(),
 				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
 				bu.Exchange,
 				strings.ToUpper(bu.Symbol),
@@ -271,8 +268,8 @@ func TradesLoop(trades []<-chan []*exchange.Trade, w io.StringWriter, wg *sync.W
 		for _, trade := range value.Interface().([]*exchange.Trade) {
 			fmt.Fprintf(&b, "T %s%d,%s,%s,%s,%d,%d,%d,%s,%s,%s\n",
 				exp,
-				trade.Timestamp.UnixMicro(),
-				trade.Timestamp.Format("2006-01-02 15:04:05.000"),
+				trade.Occurred.UnixMilli(),
+				trade.Occurred.Format("2006-01-02 15:04:05.000"),
 				trade.Exchange,
 				strings.ToUpper(trade.Symbol),
 				trade.TradeID,

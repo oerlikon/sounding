@@ -11,24 +11,16 @@ func Stamp(t time.Time) T {
 	return T(t.UnixNano())
 }
 
-func Milli(ms int64) T {
-	return T(ms * 1e3)
-}
-
-func Micro(us int64) T {
-	return T(us * 1e6)
-}
-
 func Float(s float64) T {
 	return T(s * 1e9)
 }
 
-func FloatMilli(ms float64) T {
-	return T(ms * 1e3)
+func Milli(ms int64) T {
+	return T(ms * 1e6)
 }
 
-func FloatMicro(us float64) T {
-	return T(us * 1e6)
+func Micro(us int64) T {
+	return T(us * 1e3)
 }
 
 func (t T) Time() time.Time {
@@ -39,16 +31,16 @@ func (t T) Unix() int {
 	return int(t / 1e9)
 }
 
-func (t T) UnixMilli() int64 {
-	return int64(t / 1e3)
+func (t T) UnixFloat() float64 {
+	return float64(t) / 1e9
 }
 
-func (t T) UnixMicro() int64 {
+func (t T) UnixMilli() int64 {
 	return int64(t / 1e6)
 }
 
-func (t T) UnixFloat() float64 {
-	return float64(t) / 1e9
+func (t T) UnixMicro() int64 {
+	return int64(t / 1e3)
 }
 
 func (t T) Add(d time.Duration) T {

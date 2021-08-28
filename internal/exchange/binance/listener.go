@@ -365,7 +365,7 @@ func (l *Listener) parseDepthUpdate(v *fastjson.Value) *DepthUpdateMessage {
 	}
 
 	return &DepthUpdateMessage{
-		Timestamp: timestamp.Micro(v.GetInt64("E")),
+		Timestamp: timestamp.Milli(v.GetInt64("E")),
 		FirstID:   firstID,
 		FinalID:   finalID,
 		Bids:      bids,
@@ -390,8 +390,8 @@ func (l *Listener) sendDepthUpdate(du *DepthUpdateMessage) {
 
 func (l *Listener) parseTrade(v *fastjson.Value) *TradeMessage {
 	return &TradeMessage{
-		Timestamp:   timestamp.Micro(v.GetInt64("E")),
-		Occurred:    timestamp.Micro(v.GetInt64("T")),
+		Timestamp:   timestamp.Milli(v.GetInt64("E")),
+		Occurred:    timestamp.Milli(v.GetInt64("T")),
 		TradeID:     v.GetInt64("t"),
 		BuyOrderID:  v.GetInt64("b"),
 		SellOrderID: v.GetInt64("a"),
