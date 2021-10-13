@@ -45,8 +45,8 @@ func init() {
 
 var exchanges = []string{"binance", "bitfinex", "kraken", "huobi"}
 
-func run() (err error, ret int) {
-	if err := mainutil.ParseArgs(&flags); err != nil {
+func run() (error, int) {
+	if _, err := mainutil.ParseArgs(&flags); err != nil {
 		if err == flag.ErrHelp {
 			Options.Help = true
 		} else {

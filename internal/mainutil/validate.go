@@ -42,6 +42,8 @@ func nz(v interface{}, _ string) error {
 		valid = st.Uint() != 0
 	case reflect.Float32, reflect.Float64:
 		valid = st.Float() != 0
+	case reflect.String:
+		valid = st.String() != ""
 	default:
 		panic("mainutil.Validate: unsupported type")
 	}
