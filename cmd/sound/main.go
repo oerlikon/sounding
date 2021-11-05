@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"reflect"
 	"strings"
 	"sync"
 
@@ -26,7 +25,6 @@ import (
 var Options struct {
 	Books      bool
 	Trades     bool
-	ExpID      int
 	CPUProfile string
 	Help       bool
 }
@@ -36,14 +34,13 @@ var flags flag.FlagSet
 func init() {
 	flags.BoolVarP(&Options.Books, "books", "B", true, "books")
 	flags.BoolVarP(&Options.Trades, "trades", "T", true, "trades")
-	flags.IntVarP(&Options.ExpID, "id", "", 0, "experiment ID")
 	flags.StringVarP(&Options.CPUProfile, "cpuprofile", "", "", "cpu profile")
 	flags.BoolVarP(&Options.Help, "help", "", false, "this help message")
 	flags.SetInterspersed(false)
 	flags.SetOutput(io.Discard)
 }
 
-var exchanges = []string{"binance", "bitfinex", "kraken", "huobi"}
+var exchanges = []string{"binance", "bitfinex", "kraken"}
 
 func run() (error, int) {
 	if _, err := mainutil.ParseArgs(&flags); err != nil {
@@ -90,18 +87,13 @@ func run() (error, int) {
 		}
 		switch exch {
 		case "binance":
-			listeners = append(listeners, binance.NewListener(symbol,
-				exchange.OptionLogger(stderr)))
+			listeners = append(listeners, binance.NewListener(symbol, OptionStderr(stderr)))
 		case "bitfinex":
-			listeners = append(listeners, bitfinex.NewListener(symbol,
-				exchange.OptionLogger(stderr)))
+			listeners = append(listeners, bitfinex.NewListener(symbol, OptionStderr(stderr)))
 		case "kraken":
-			listeners = append(listeners, kraken.NewListener(symbol,
-				exchange.OptionLogger(stderr)))
-		case "huobi":
+			listeners = append(listeners, kraken.NewListener(symbol, OptionStderr(stderr)))
 		}
 	}
-
 	if len(listeners) == 0 {
 		stderr.Print("No listeners?")
 		return nil, 1
@@ -111,7 +103,6 @@ func run() (error, int) {
 	defer cancel()
 
 	var mu sync.Mutex // Initialization mutex.
-
 	mu.Lock()
 
 	interrupt := make(chan os.Signal, 1)
@@ -148,7 +139,6 @@ func run() (error, int) {
 	stderr.Print("Listening...")
 
 	mu.Unlock()
-
 	wg.Wait()
 	out.Flush()
 
@@ -163,128 +153,4 @@ func main() {
 	if ret != 0 {
 		os.Exit(ret)
 	}
-}
-
-func Books(listeners []exchange.Listener) []<-chan *exchange.BookUpdate {
-	books := make([]<-chan *exchange.BookUpdate, 0, len(listeners))
-	for _, listener := range listeners {
-		if listener == nil {
-			continue
-		}
-		if bc := listener.Book(); bc != nil {
-			books = append(books, bc)
-		}
-	}
-	if len(books) == 0 {
-		return nil
-	}
-	return books
-}
-
-func BooksLoop(books []<-chan *exchange.BookUpdate, w io.StringWriter, wg *sync.WaitGroup) {
-	exp := ""
-	if Options.ExpID != 0 {
-		exp = fmt.Sprintf("%d,", Options.ExpID)
-	}
-	cases := make([]reflect.SelectCase, len(books))
-	for i, bc := range books {
-		cases[i] = reflect.SelectCase{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(bc),
-		}
-	}
-	var b strings.Builder
-	for len(cases) > 0 {
-		n, value, ok := reflect.Select(cases)
-		if !ok {
-			cases = append(cases[:n], cases[n+1:]...)
-			continue
-		}
-		b.Reset()
-		bu := value.Interface().(*exchange.BookUpdate)
-		for _, pl := range bu.Bids {
-			fmt.Fprintf(&b, "B %s%d,%s,%s,%s,%s,%s,%s\n",
-				exp,
-				bu.Timestamp.UnixMilli(),
-				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
-				bu.Exchange,
-				strings.ToUpper(bu.Symbol),
-				"BID",
-				pl.Price,
-				pl.Quantity)
-		}
-		for _, pl := range bu.Asks {
-			fmt.Fprintf(&b, "B %s%d,%s,%s,%s,%s,%s,%s\n",
-				exp,
-				bu.Timestamp.UnixMilli(),
-				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
-				bu.Exchange,
-				strings.ToUpper(bu.Symbol),
-				"ASK",
-				pl.Price,
-				pl.Quantity)
-		}
-		w.WriteString(b.String())
-	}
-	wg.Done()
-}
-
-func Trades(listeners []exchange.Listener) []<-chan []*exchange.Trade {
-	trades := make([]<-chan []*exchange.Trade, 0, len(listeners))
-	for _, listener := range listeners {
-		if listener == nil {
-			continue
-		}
-		if tc := listener.Trades(); tc != nil {
-			trades = append(trades, tc)
-		}
-	}
-	if len(trades) == 0 {
-		return nil
-	}
-	return trades
-}
-
-func TradesLoop(trades []<-chan []*exchange.Trade, w io.StringWriter, wg *sync.WaitGroup) {
-	exp := ""
-	if Options.ExpID != 0 {
-		exp = fmt.Sprintf("%d,", Options.ExpID)
-	}
-	cases := make([]reflect.SelectCase, len(trades))
-	for i, tc := range trades {
-		cases[i] = reflect.SelectCase{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(tc),
-		}
-	}
-	var b strings.Builder
-	for len(cases) > 0 {
-		n, value, ok := reflect.Select(cases)
-		if !ok {
-			cases = append(cases[:n], cases[n+1:]...)
-			continue
-		}
-		b.Reset()
-		for _, trade := range value.Interface().([]*exchange.Trade) {
-			fmt.Fprintf(&b, "T %s%d,%s,%s,%s,%d,%d,%d,%s,%s,%s\n",
-				exp,
-				trade.Occurred.UnixMilli(),
-				trade.Occurred.Format("2006-01-02 15:04:05.000"),
-				trade.Exchange,
-				strings.ToUpper(trade.Symbol),
-				trade.TradeID,
-				trade.BuyOrderID,
-				trade.SellOrderID,
-				func() string {
-					if trade.Taker == exchange.Buy {
-						return "BUY"
-					}
-					return "SELL"
-				}(),
-				trade.Price,
-				trade.Quantity)
-		}
-		w.WriteString(b.String())
-	}
-	wg.Done()
 }

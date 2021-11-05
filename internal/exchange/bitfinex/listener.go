@@ -13,11 +13,12 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/valyala/fastjson"
 
+	. "sounding/internal/common"
 	"sounding/internal/common/timestamp"
 	"sounding/internal/exchange"
 )
 
-var serverURL = "wss://api-pub.bitfinex.com/ws/2"
+const serverURL = "wss://api-pub.bitfinex.com/ws/2"
 
 type Listener struct {
 	symbol string
@@ -48,16 +49,15 @@ type Listener struct {
 	nextSeq int64
 }
 
-func NewListener(symbol string, options ...exchange.Option) exchange.Listener {
+func NewListener(symbol string, options ...Option) exchange.Listener {
 	var opts Options
-	for _, o := range options {
-		err := o(&opts)
-		if err == exchange.ErrCommonOption {
-			err = o(&opts.Options)
+	for _, opt := range options {
+		if err := opt(&opts); err != nil {
+			panic("bitfinex: error setting options: " + err.Error())
 		}
-		if err != nil {
-			panic("bitfinex: unknown error setting options")
-		}
+	}
+	if opts.Stderr == nil {
+		opts.Stderr = Silent
 	}
 	return &Listener{
 		symbol: symbol,
@@ -74,9 +74,7 @@ func (l *Listener) Symbol() string {
 }
 
 func (l *Listener) Start(ctx context.Context) error {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Printf("Starting listener bitfinex:%s", l.symbol)
-	}
+	l.opts.Stderr.Printf("Starting listener bitfinex:%s", l.symbol)
 	ws, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
 	if err != nil {
 		return err
@@ -158,15 +156,11 @@ func (l *Listener) Trades() <-chan []*exchange.Trade {
 }
 
 func (l *Listener) err(err error) {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Error: bitfinex:", err)
-	}
+	l.opts.Stderr.Println("Error: bitfinex:", err)
 }
 
 func (l *Listener) warn(err error) {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Warning: bitfinex:", err)
-	}
+	l.opts.Stderr.Println("Warning: bitfinex:", err)
 }
 
 func (l *Listener) sendWsMessage(msg string) error {
@@ -498,9 +492,7 @@ func (l *Listener) sendTrades(trades []*TradeMessage) {
 }
 
 func (l *Listener) shutdown() {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Printf("Stopping listener bitfinex:%s", l.symbol)
-	}
+	l.opts.Stderr.Printf("Stopping listener bitfinex:%s", l.symbol)
 	if bookCh := l.bookCh.Load(); bookCh != nil {
 		l.unsubscribeBook()
 		close(bookCh.(chan *exchange.BookUpdate))

@@ -14,11 +14,12 @@ import (
 	"github.com/valyala/fastjson"
 	"github.com/valyala/fastjson/fastfloat"
 
+	. "sounding/internal/common"
 	"sounding/internal/common/timestamp"
 	"sounding/internal/exchange"
 )
 
-var serverURL = "wss://ws.kraken.com"
+const serverURL = "wss://ws.kraken.com"
 
 type Listener struct {
 	symbol string
@@ -46,16 +47,15 @@ type Listener struct {
 	}
 }
 
-func NewListener(symbol string, options ...exchange.Option) exchange.Listener {
+func NewListener(symbol string, options ...Option) exchange.Listener {
 	var opts Options
-	for _, o := range options {
-		err := o(&opts)
-		if err == exchange.ErrCommonOption {
-			err = o(&opts.Options)
+	for _, opt := range options {
+		if err := opt(&opts); err != nil {
+			panic("kraken: error setting options: " + err.Error())
 		}
-		if err != nil {
-			panic("kraken: unknown error setting options")
-		}
+	}
+	if opts.Stderr == nil {
+		opts.Stderr = Silent
 	}
 	return &Listener{
 		symbol: symbol,
@@ -72,9 +72,7 @@ func (l *Listener) Symbol() string {
 }
 
 func (l *Listener) Start(ctx context.Context) error {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Printf("Starting listener kraken:%s", l.symbol)
-	}
+	l.opts.Stderr.Printf("Starting listener kraken:%s", l.symbol)
 	ws, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
 	if err != nil {
 		return err
@@ -152,15 +150,11 @@ func (l *Listener) Trades() <-chan []*exchange.Trade {
 }
 
 func (l *Listener) err(err error) {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Error: kraken:", err)
-	}
+	l.opts.Stderr.Println("Error: kraken:", err)
 }
 
 func (l *Listener) warn(err error) {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Warning: kraken:", err)
-	}
+	l.opts.Stderr.Println("Warning: kraken:", err)
 }
 
 func (l *Listener) sendWsMessage(msg string) error {
@@ -407,9 +401,7 @@ func (l *Listener) sendTrades(trades []*TradeMessage) {
 }
 
 func (l *Listener) shutdown() {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Printf("Stopping listener kraken:%s", l.symbol)
-	}
+	l.opts.Stderr.Printf("Stopping listener kraken:%s", l.symbol)
 	if bookCh := l.bookCh.Load(); bookCh != nil {
 		l.unsubscribeBook()
 		close(bookCh.(chan *exchange.BookUpdate))

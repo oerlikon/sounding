@@ -15,11 +15,12 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/valyala/fastjson"
 
+	. "sounding/internal/common"
 	"sounding/internal/common/timestamp"
 	"sounding/internal/exchange"
 )
 
-var serverURL = "wss://stream.binance.com:9443/stream"
+const serverURL = "wss://stream.binance.com:9443/stream"
 
 type Listener struct {
 	symbol string
@@ -45,16 +46,15 @@ type Listener struct {
 	}
 }
 
-func NewListener(symbol string, options ...exchange.Option) exchange.Listener {
+func NewListener(symbol string, options ...Option) exchange.Listener {
 	var opts Options
-	for _, o := range options {
-		err := o(&opts)
-		if err == exchange.ErrCommonOption {
-			err = o(&opts.Options)
+	for _, opt := range options {
+		if err := opt(&opts); err != nil {
+			panic("binance: error setting options: " + err.Error())
 		}
-		if err != nil {
-			panic("binance: unknown error setting options")
-		}
+	}
+	if opts.Stderr == nil {
+		opts.Stderr = Silent
 	}
 	return &Listener{
 		symbol: symbol,
@@ -71,9 +71,7 @@ func (l *Listener) Symbol() string {
 }
 
 func (l *Listener) Start(ctx context.Context) error {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Printf("Starting listener binance:%s", l.symbol)
-	}
+	l.opts.Stderr.Printf("Starting listener binance:%s", l.symbol)
 	ws, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
 	if err != nil {
 		return err
@@ -152,15 +150,11 @@ func (l *Listener) Trades() <-chan []*exchange.Trade {
 }
 
 func (l *Listener) err(err error) {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Error: binance:", err)
-	}
+	l.opts.Stderr.Println("Error: binance:", err)
 }
 
 func (l *Listener) warn(err error) {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Println("Warning: binance:", err)
-	}
+	l.opts.Stderr.Println("Warning: binance:", err)
 }
 
 func (l *Listener) sendWsMessage(msg string) error {
@@ -429,9 +423,7 @@ func (l *Listener) sendTrade(trade *TradeMessage) {
 }
 
 func (l *Listener) shutdown() {
-	if l.opts.Logger != nil {
-		l.opts.Logger.Printf("Stopping listener binance:%s", l.symbol)
-	}
+	l.opts.Stderr.Printf("Stopping listener binance:%s", l.symbol)
 	if bookCh := l.bookCh.Load(); bookCh != nil {
 		l.unsubscribeDepth()
 		close(bookCh.(chan *exchange.BookUpdate))
