@@ -42,39 +42,39 @@ func init() {
 
 var exchanges = []string{"binance", "bitfinex", "kraken"}
 
-func run() (error, int) {
+func run() (int, error) {
 	if _, err := mainutil.ParseArgs(&flags); err != nil {
 		if err == flag.ErrHelp {
 			Options.Help = true
 		} else {
-			return err, 1
+			return 1, err
 		}
 	}
 	if Options.Help {
 		stdout.Print(flags.FlagUsages())
-		return nil, 1
+		return 1, nil
 	}
 	if err := mainutil.Validate(Options); err != nil {
 		stderr.Print(err)
-		return nil, 1
+		return 1, nil
 	}
 	if flags.NArg() == 0 {
 		stderr.Print("Symbols?")
-		return nil, 1
+		return 1, nil
 	}
 
 	symbols := map[string]string{}
 	for _, arg := range flags.Args() {
 		n := strings.IndexByte(arg, ':')
 		if n < 1 || n > len(arg)-2 {
-			return fmt.Errorf("invalid arg: %s", arg), 1
+			return 1, fmt.Errorf("invalid arg: %s", arg)
 		}
 		exch, sym := arg[:n], arg[n+1:]
 		if FindString(exchanges, exch) < 0 {
-			return fmt.Errorf("unknown exchange: %s", exch), 1
+			return 1, fmt.Errorf("unknown exchange: %s", exch)
 		}
 		if symbols[exch] != "" && symbols[exch] != sym {
-			return fmt.Errorf("more than one symbol for %s: %s", exch, sym), 1
+			return 1, fmt.Errorf("more than one symbol for %s: %s", exch, sym)
 		}
 		symbols[exch] = sym
 	}
@@ -96,7 +96,7 @@ func run() (error, int) {
 	}
 	if len(listeners) == 0 {
 		stderr.Print("No listeners?")
-		return nil, 1
+		return 1, nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -119,7 +119,7 @@ func run() (error, int) {
 
 	for _, listener := range listeners {
 		if err := listener.Start(ctx); err != nil {
-			return err, 2
+			return 2, err
 		}
 	}
 
@@ -137,16 +137,16 @@ func run() (error, int) {
 	}
 
 	stderr.Print("Listening...")
-
 	mu.Unlock()
+
 	wg.Wait()
 	out.Flush()
 
-	return nil, 0
+	return 0, nil
 }
 
 func main() {
-	err, ret := run()
+	ret, err := run()
 	if err != nil {
 		stderr.Println("Error:", err)
 	}

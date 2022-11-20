@@ -46,7 +46,7 @@ func BooksLoop(books []<-chan *exchange.BookUpdate, w io.StringWriter, wg *sync.
 		for _, pl := range bu.Bids {
 			fmt.Fprintf(&b, "B %d,%s,%s,%s,%s,%s,%s\n",
 				bu.Timestamp.UnixMilli(),
-				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
+				bu.Timestamp.Format("2006-01-02T15:04:05.000Z07:00"),
 				bu.Exchange,
 				strings.ToUpper(bu.Symbol),
 				"BID",
@@ -56,7 +56,7 @@ func BooksLoop(books []<-chan *exchange.BookUpdate, w io.StringWriter, wg *sync.
 		for _, pl := range bu.Asks {
 			fmt.Fprintf(&b, "B %d,%s,%s,%s,%s,%s,%s\n",
 				bu.Timestamp.UnixMilli(),
-				bu.Timestamp.Format("2006-01-02 15:04:05.000"),
+				bu.Timestamp.Format("2006-01-02T15:04:05.000Z07:00"),
 				bu.Exchange,
 				strings.ToUpper(bu.Symbol),
 				"ASK",

@@ -3,6 +3,7 @@ package mainutil
 import (
 	"io"
 	"os"
+	"unsafe"
 )
 
 func ReadAllStdin() ([]byte, error) {
@@ -14,4 +15,8 @@ func ReadAllStdin() ([]byte, error) {
 		return nil, nil
 	}
 	return io.ReadAll(os.Stdin)
+}
+
+func b2s(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }

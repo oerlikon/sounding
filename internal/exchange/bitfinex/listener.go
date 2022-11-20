@@ -41,7 +41,7 @@ type Listener struct {
 	}
 
 	subscribed struct {
-		mu     sync.Mutex
+		sync.Mutex
 		book   bool
 		trades bool
 	}
@@ -168,8 +168,8 @@ func (l *Listener) sendWsMessage(msg string) error {
 }
 
 func (l *Listener) sendWsConf() error {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	TIMESTAMP, SEQ_ALL := 32768, 65536
 
@@ -181,8 +181,8 @@ func (l *Listener) sendWsConf() error {
 }
 
 func (l *Listener) subscribeBook() error {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if l.subscribed.book {
 		return nil
@@ -197,8 +197,8 @@ func (l *Listener) subscribeBook() error {
 }
 
 func (l *Listener) unsubscribeBook() {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if !l.subscribed.book {
 		return
@@ -213,12 +213,11 @@ func (l *Listener) unsubscribeBook() {
 	}
 	l.book.chanID = atomic.Value{}
 	l.subscribed.book = false
-	return
 }
 
 func (l *Listener) subscribeTrades() error {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if l.subscribed.trades {
 		return nil
@@ -233,8 +232,8 @@ func (l *Listener) subscribeTrades() error {
 }
 
 func (l *Listener) unsubscribeTrades() {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if !l.subscribed.trades {
 		return
@@ -249,7 +248,6 @@ func (l *Listener) unsubscribeTrades() {
 	}
 	l.trades.chanID = atomic.Value{}
 	l.subscribed.trades = false
-	return
 }
 
 func (l *Listener) process(msg []byte) error {
@@ -266,7 +264,7 @@ func (l *Listener) process(msg []byte) error {
 		}
 		l.nextSeq = seq + 1
 
-		if bytes.Compare(arr[1].GetStringBytes(), []byte("hb")) == 0 {
+		if bytes.Equal(arr[1].GetStringBytes(), []byte("hb")) {
 			return nil
 		}
 
@@ -287,9 +285,9 @@ func (l *Listener) process(msg []byte) error {
 			var tu []*TradeMessage
 			if l.trades.started {
 				teu := arr[1].GetStringBytes()
-				if bytes.Compare(teu, []byte("te")) == 0 {
+				if bytes.Equal(teu, []byte("te")) {
 					tu = l.parseTrade(arr[2])
-				} else if bytes.Compare(teu, []byte("tu")) != 0 {
+				} else if !bytes.Equal(teu, []byte("tu")) {
 					l.err(errors.New(string(msg)))
 					return nil
 				}
@@ -310,25 +308,25 @@ func (l *Listener) process(msg []byte) error {
 		return nil
 	}
 	event := v.GetStringBytes("event")
-	if bytes.Compare(event, []byte("subscribed")) == 0 {
+	if bytes.Equal(event, []byte("subscribed")) {
 		channel := v.GetStringBytes("channel")
 		switch {
-		case bytes.Compare(channel, []byte("book")) == 0:
+		case bytes.Equal(channel, []byte("book")):
 			l.book.chanID.Store(v.GetInt64("chanId"))
-		case bytes.Compare(channel, []byte("trades")) == 0:
+		case bytes.Equal(channel, []byte("trades")):
 			l.trades.chanID.Store(v.GetInt64("chanId"))
 		default:
 			return fmt.Errorf("subscribed unexpected channel %s", string(channel))
 		}
 		return nil
 	}
-	if bytes.Compare(event, []byte("info")) == 0 {
+	if bytes.Equal(event, []byte("info")) {
 		return nil
 	}
-	if bytes.Compare(event, []byte("conf")) == 0 {
+	if bytes.Equal(event, []byte("conf")) {
 		return nil
 	}
-	if bytes.Index(msg, []byte("error")) >= 0 {
+	if bytes.Contains(msg, []byte("error")) {
 		return errors.New(string(msg))
 	}
 	l.warn(errors.New(string(msg)))

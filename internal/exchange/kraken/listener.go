@@ -41,7 +41,7 @@ type Listener struct {
 	}
 
 	subscribed struct {
-		mu    sync.Mutex
+		sync.Mutex
 		book  bool
 		trade bool
 	}
@@ -162,8 +162,8 @@ func (l *Listener) sendWsMessage(msg string) error {
 }
 
 func (l *Listener) subscribeBook() error {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if l.subscribed.book {
 		return nil
@@ -178,8 +178,8 @@ func (l *Listener) subscribeBook() error {
 }
 
 func (l *Listener) unsubscribeBook() {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if !l.subscribed.book {
 		return
@@ -191,12 +191,11 @@ func (l *Listener) unsubscribeBook() {
 	}
 	l.book.channelName = atomic.Value{}
 	l.subscribed.book = false
-	return
 }
 
 func (l *Listener) subscribeTrade() error {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if l.subscribed.trade {
 		return nil
@@ -211,8 +210,8 @@ func (l *Listener) subscribeTrade() error {
 }
 
 func (l *Listener) unsubscribeTrade() {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if !l.subscribed.trade {
 		return
@@ -224,7 +223,6 @@ func (l *Listener) unsubscribeTrade() {
 	}
 	l.trade.channelName = atomic.Value{}
 	l.subscribed.trade = false
-	return
 }
 
 func (l *Listener) process(msg []byte) error {
@@ -258,15 +256,15 @@ func (l *Listener) process(msg []byte) error {
 		return nil
 	}
 	event := v.GetStringBytes("event")
-	if bytes.Compare(event, []byte("subscriptionStatus")) == 0 {
+	if bytes.Equal(event, []byte("subscriptionStatus")) {
 		status := v.GetStringBytes("status")
-		if bytes.Compare(status, []byte("subscribed")) == 0 {
+		if bytes.Equal(status, []byte("subscribed")) {
 			channel := v.GetStringBytes("subscription", "name")
 			channelName := v.Get("channelName").S()
 			switch {
-			case bytes.Compare(channel, []byte("book")) == 0:
+			case bytes.Equal(channel, []byte("book")):
 				l.book.channelName.Store(channelName)
-			case bytes.Compare(channel, []byte("trade")) == 0:
+			case bytes.Equal(channel, []byte("trade")):
 				l.trade.channelName.Store(channelName)
 			default:
 				return fmt.Errorf("subscribed unexpected channel %s", channelName)
@@ -274,13 +272,13 @@ func (l *Listener) process(msg []byte) error {
 			return nil
 		}
 	}
-	if bytes.Compare(event, []byte("heartbeat")) == 0 {
+	if bytes.Equal(event, []byte("heartbeat")) {
 		return nil
 	}
-	if bytes.Compare(event, []byte("systemStatus")) == 0 {
+	if bytes.Equal(event, []byte("systemStatus")) {
 		return nil
 	}
-	if bytes.Index(msg, []byte("error")) >= 0 {
+	if bytes.Contains(msg, []byte("error")) {
 		return errors.New(string(msg))
 	}
 	l.warn(errors.New(string(msg)))

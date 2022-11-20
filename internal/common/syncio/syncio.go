@@ -6,8 +6,8 @@ import (
 )
 
 type StringWriter struct {
-	mu sync.Mutex
-	w  io.StringWriter
+	sync.Mutex
+	w io.StringWriter
 }
 
 func NewStringWriter(w io.StringWriter) *StringWriter {
@@ -15,7 +15,7 @@ func NewStringWriter(w io.StringWriter) *StringWriter {
 }
 
 func (w *StringWriter) WriteString(s string) (n int, err error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Lock()
+	defer w.Unlock()
 	return w.w.WriteString(s)
 }

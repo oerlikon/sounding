@@ -40,7 +40,7 @@ type Listener struct {
 	}
 
 	subscribed struct {
-		mu    sync.Mutex
+		sync.Mutex
 		depth bool
 		trade bool
 	}
@@ -162,8 +162,8 @@ func (l *Listener) sendWsMessage(msg string) error {
 }
 
 func (l *Listener) subscribeDepth() error {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if l.subscribed.depth {
 		return nil
@@ -178,8 +178,8 @@ func (l *Listener) subscribeDepth() error {
 }
 
 func (l *Listener) unsubscribeDepth() {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if !l.subscribed.depth {
 		return
@@ -190,12 +190,11 @@ func (l *Listener) unsubscribeDepth() {
 		return
 	}
 	l.subscribed.depth = false
-	return
 }
 
 func (l *Listener) subscribeTrade() error {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if l.subscribed.trade {
 		return nil
@@ -210,8 +209,8 @@ func (l *Listener) subscribeTrade() error {
 }
 
 func (l *Listener) unsubscribeTrade() {
-	l.subscribed.mu.Lock()
-	defer l.subscribed.mu.Unlock()
+	l.subscribed.Lock()
+	defer l.subscribed.Unlock()
 
 	if !l.subscribed.trade {
 		return
@@ -222,7 +221,6 @@ func (l *Listener) unsubscribeTrade() {
 		return
 	}
 	l.subscribed.trade = false
-	return
 }
 
 func (l *Listener) fetchDepthSnapshot() {
@@ -241,11 +239,11 @@ func (l *Listener) fetchDepthSnapshot() {
 		return
 	}
 
-	if bytes.Index(body, []byte("Illegal")) >= 0 {
+	if bytes.Contains(body, []byte("Illegal")) {
 		l.err(errors.New(string(body)))
 		return
 	}
-	if bytes.Index(body, []byte("Invalid")) >= 0 {
+	if bytes.Contains(body, []byte("Invalid")) {
 		l.err(errors.New(string(body)))
 		return
 	}
@@ -301,7 +299,7 @@ func (l *Listener) process(msg []byte) error {
 	if result := v.Get("result"); result != nil {
 		return nil
 	}
-	if bytes.Index(msg, []byte("error")) >= 0 {
+	if bytes.Contains(msg, []byte("error")) {
 		return errors.New(string(msg))
 	}
 	l.warn(errors.New(string(msg)))

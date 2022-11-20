@@ -45,7 +45,7 @@ func TradesLoop(trades []<-chan []*exchange.Trade, w io.StringWriter, wg *sync.W
 		for _, trade := range value.Interface().([]*exchange.Trade) {
 			fmt.Fprintf(&b, "T %d,%s,%s,%s,%d,%d,%d,%s,%s,%s\n",
 				trade.Occurred.UnixMilli(),
-				trade.Occurred.Format("2006-01-02 15:04:05.000"),
+				trade.Occurred.Format("2006-01-02T15:04:05.000Z07:00"),
 				trade.Exchange,
 				strings.ToUpper(trade.Symbol),
 				trade.TradeID,

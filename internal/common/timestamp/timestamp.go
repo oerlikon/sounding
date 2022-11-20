@@ -51,6 +51,10 @@ func (t T) Sub(u T) time.Duration {
 	return time.Duration(t - u)
 }
 
+func (t T) Truncate(d time.Duration) T {
+	return T(int64(t) - int64(t)%int64(d))
+}
+
 func (t T) Format(layout string) string {
 	return t.Time().Format(layout)
 }

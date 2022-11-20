@@ -14,7 +14,7 @@ func ParseArgs(flags *flag.FlagSet) (argv []string, err error) {
 	if input, err := ReadAllStdin(); err == nil && len(input) > 0 {
 		parser := shellwords.NewParser()
 		parser.ParseEnv = true
-		words, err := parser.Parse(string(input))
+		words, err := parser.Parse(b2s(input))
 		if err != nil {
 			return nil, err
 		}
@@ -33,7 +33,7 @@ func ParseTime(s string) (t time.Time, err error) {
 	if s == "" || s == "-" || s == "0" {
 		return time.Time{}, nil
 	}
-	if strings.IndexAny(s, "T_ ") != -1 {
+	if strings.ContainsAny(s, "T_ ") {
 		s = strings.NewReplacer("T", " ", "_", " ", "   ", " ", "  ", " ").Replace(s)
 	}
 	formats := []string{
