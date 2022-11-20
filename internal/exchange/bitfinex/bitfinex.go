@@ -1,6 +1,6 @@
 package bitfinex
 
-import "sounding/internal/common"
+import "github.com/oerlikon/sounding/internal/common"
 
 const exchName = "Bitfinex"
 

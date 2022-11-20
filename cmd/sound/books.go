@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"sounding/internal/exchange"
+	"github.com/oerlikon/sounding/internal/exchange"
 )
 
 func Books(listeners []exchange.Listener) []<-chan *exchange.BookUpdate {

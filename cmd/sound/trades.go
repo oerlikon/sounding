@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"sounding/internal/exchange"
+	"github.com/oerlikon/sounding/internal/exchange"
 )
 
 func Trades(listeners []exchange.Listener) []<-chan []*exchange.Trade {

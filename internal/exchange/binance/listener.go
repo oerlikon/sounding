@@ -16,9 +16,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/valyala/fastjson"
 
-	. "sounding/internal/common"
-	"sounding/internal/common/timestamp"
-	"sounding/internal/exchange"
+	. "github.com/oerlikon/sounding/internal/common"
+	"github.com/oerlikon/sounding/internal/common/timestamp"
+	"github.com/oerlikon/sounding/internal/exchange"
 )
 
 const serverURL = "wss://stream.binance.com:9443/stream"

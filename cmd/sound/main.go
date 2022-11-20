@@ -13,13 +13,13 @@ import (
 	flag "github.com/spf13/pflag"
 	"golang.org/x/term"
 
-	. "sounding/internal/common"
-	"sounding/internal/common/syncio"
-	"sounding/internal/exchange"
-	"sounding/internal/exchange/binance"
-	"sounding/internal/exchange/bitfinex"
-	"sounding/internal/exchange/kraken"
-	"sounding/internal/mainutil"
+	. "github.com/oerlikon/sounding/internal/common"
+	"github.com/oerlikon/sounding/internal/common/syncio"
+	"github.com/oerlikon/sounding/internal/exchange"
+	"github.com/oerlikon/sounding/internal/exchange/binance"
+	"github.com/oerlikon/sounding/internal/exchange/bitfinex"
+	"github.com/oerlikon/sounding/internal/exchange/kraken"
+	"github.com/oerlikon/sounding/internal/mainutil"
 )
 
 var Options struct {

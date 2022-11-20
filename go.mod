@@ -1,4 +1,4 @@
-module sounding
+module github.com/oerlikon/sounding
 
 go 1.19
 

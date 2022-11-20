@@ -3,7 +3,7 @@ package exchange
 import (
 	"context"
 
-	"sounding/internal/common/timestamp"
+	"github.com/oerlikon/sounding/internal/common/timestamp"
 )
 
 //

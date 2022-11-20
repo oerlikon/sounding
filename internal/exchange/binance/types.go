@@ -1,8 +1,8 @@
 package binance
 
 import (
-	"sounding/internal/common/timestamp"
-	"sounding/internal/exchange"
+	"github.com/oerlikon/sounding/internal/common/timestamp"
+	"github.com/oerlikon/sounding/internal/exchange"
 )
 
 type DepthUpdateMessage struct {

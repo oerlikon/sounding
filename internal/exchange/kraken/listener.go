@@ -15,9 +15,9 @@ import (
 	"github.com/valyala/fastjson"
 	"github.com/valyala/fastjson/fastfloat"
 
-	. "sounding/internal/common"
-	"sounding/internal/common/timestamp"
-	"sounding/internal/exchange"
+	. "github.com/oerlikon/sounding/internal/common"
+	"github.com/oerlikon/sounding/internal/common/timestamp"
+	"github.com/oerlikon/sounding/internal/exchange"
 )
 
 const serverURL = "wss://ws.kraken.com"
