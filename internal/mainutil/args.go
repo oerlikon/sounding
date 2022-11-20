@@ -29,6 +29,13 @@ func ParseArgs(flags *flag.FlagSet) (argv []string, err error) {
 	return argv, flags.Parse(append(os.Args[1:], argx...))
 }
 
+var timeFormats = []string{
+	"2006-01-02",
+	"2006-01-02 15:04",
+	"2006-01-02 15:04:05",
+	"2006-01-02 15:04:05.999",
+}
+
 func ParseTime(s string) (t time.Time, err error) {
 	if s == "" || s == "-" || s == "0" {
 		return time.Time{}, nil
@@ -36,16 +43,10 @@ func ParseTime(s string) (t time.Time, err error) {
 	if strings.ContainsAny(s, "T_ ") {
 		s = strings.NewReplacer("T", " ", "_", " ", "   ", " ", "  ", " ").Replace(s)
 	}
-	formats := []string{
-		"2006-01-02",
-		"2006-01-02 15:04",
-		"2006-01-02 15:04:05",
-		"2006-01-02 15:04:05.999",
-	}
-	for i := len(formats) - 1; i > 0; i-- {
-		if t, err := time.Parse(formats[i], s); err == nil {
+	for i := len(timeFormats) - 1; i > 0; i-- {
+		if t, err := time.Parse(timeFormats[i], s); err == nil {
 			return t, nil
 		}
 	}
-	return time.Parse(formats[0], s)
+	return time.Parse(timeFormats[0], s)
 }
