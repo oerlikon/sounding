@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -24,6 +25,9 @@ const serverURL = "wss://ws.kraken.com"
 type Listener struct {
 	symbol string
 	opts   Options
+
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	bookCh   atomic.Value
 	tradesCh atomic.Value
@@ -79,11 +83,13 @@ func (l *Listener) Start(ctx context.Context) error {
 	}
 	l.ws = ws
 
+	l.ctx, l.cancel = context.WithCancel(ctx)
+
 	msgs := make(chan []byte, 1)
 	go func() {
 		errcount := 0
 		for {
-			if ctx.Err() != nil {
+			if l.ctx.Err() != nil {
 				return
 			}
 			_, msg, err := l.ws.ReadMessage()
@@ -94,7 +100,7 @@ func (l *Listener) Start(ctx context.Context) error {
 				errcount = 0
 				continue
 			}
-			if ctx.Err() != nil {
+			if errors.Is(err, net.ErrClosed) && l.ctx.Err() != nil {
 				return
 			}
 			l.err(err)
@@ -110,7 +116,7 @@ func (l *Listener) Start(ctx context.Context) error {
 				if err := l.process(msg); err != nil {
 					l.err(err)
 				}
-			case <-ctx.Done():
+			case <-l.ctx.Done():
 				l.shutdown()
 				return
 			}
@@ -120,7 +126,10 @@ func (l *Listener) Start(ctx context.Context) error {
 }
 
 func (l *Listener) Book() <-chan *exchange.BookUpdate {
-	if bookCh := l.bookCh.Load(); bookCh != nil {
+	if l.ctx == nil {
+		return nil
+	}
+	if bookCh := l.bookCh.Load(); bookCh != nil && bookCh.(chan *exchange.BookUpdate) != nil {
 		return bookCh.(chan *exchange.BookUpdate)
 	}
 	if !l.subscribed.book {
@@ -135,7 +144,10 @@ func (l *Listener) Book() <-chan *exchange.BookUpdate {
 }
 
 func (l *Listener) Trades() <-chan []*exchange.Trade {
-	if tradesCh := l.tradesCh.Load(); tradesCh != nil {
+	if l.ctx == nil {
+		return nil
+	}
+	if tradesCh := l.tradesCh.Load(); tradesCh != nil && tradesCh.(chan []*exchange.Trade) != nil {
 		return tradesCh.(chan []*exchange.Trade)
 	}
 	if !l.subscribed.trade {
@@ -189,7 +201,7 @@ func (l *Listener) unsubscribeBook() {
 	if err := l.sendWsMessage(msg); err != nil {
 		return
 	}
-	l.book.channelName = atomic.Value{}
+	l.book.channelName.Store("")
 	l.subscribed.book = false
 }
 
@@ -221,7 +233,7 @@ func (l *Listener) unsubscribeTrade() {
 	if err := l.sendWsMessage(msg); err != nil {
 		return
 	}
-	l.trade.channelName = atomic.Value{}
+	l.trade.channelName.Store("")
 	l.subscribed.trade = false
 }
 
@@ -271,6 +283,7 @@ func (l *Listener) process(msg []byte) error {
 			}
 			return nil
 		}
+		// fallthrough
 	}
 	if bytes.Equal(event, []byte("heartbeat")) {
 		return nil
@@ -335,7 +348,7 @@ func (l *Listener) parseBookUpdate(v *fastjson.Value) *BookUpdateMessage {
 
 func (l *Listener) sendBookUpdate(bu *BookUpdateMessage) {
 	bookCh := l.bookCh.Load()
-	if bookCh == nil {
+	if bookCh == nil || bookCh.(chan *exchange.BookUpdate) == nil {
 		return
 	}
 	bookCh.(chan *exchange.BookUpdate) <- &exchange.BookUpdate{
@@ -376,7 +389,7 @@ func (l *Listener) parseTrade(v *fastjson.Value) []*TradeMessage {
 
 func (l *Listener) sendTrades(trades []*TradeMessage) {
 	tradesCh := l.tradesCh.Load()
-	if tradesCh == nil {
+	if tradesCh == nil || tradesCh.(chan []*exchange.Trade) == nil {
 		return
 	}
 	if len(trades) == 0 {
@@ -400,15 +413,16 @@ func (l *Listener) sendTrades(trades []*TradeMessage) {
 
 func (l *Listener) shutdown() {
 	l.opts.Stderr.Printf("Stopping listener kraken:%s", l.symbol)
-	if bookCh := l.bookCh.Load(); bookCh != nil {
+	if bookCh := l.bookCh.Load(); bookCh != nil && bookCh.(chan *exchange.BookUpdate) != nil {
 		l.unsubscribeBook()
 		close(bookCh.(chan *exchange.BookUpdate))
-		l.bookCh = atomic.Value{}
+		l.bookCh.Store((chan *exchange.BookUpdate)(nil))
 	}
-	if tradesCh := l.tradesCh.Load(); tradesCh != nil {
+	if tradesCh := l.tradesCh.Load(); tradesCh != nil && tradesCh.(chan []*exchange.Trade) != nil {
 		l.unsubscribeTrade()
 		close(tradesCh.(chan []*exchange.Trade))
-		l.tradesCh = atomic.Value{}
+		l.tradesCh.Store((chan []*exchange.Trade)(nil))
 	}
 	l.ws.Close()
+	l.cancel()
 }

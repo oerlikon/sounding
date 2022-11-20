@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -25,6 +26,9 @@ const serverURL = "wss://stream.binance.com:9443/stream"
 type Listener struct {
 	symbol string
 	opts   Options
+
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	bookCh   atomic.Value
 	tradesCh atomic.Value
@@ -78,11 +82,13 @@ func (l *Listener) Start(ctx context.Context) error {
 	}
 	l.ws = ws
 
+	l.ctx, l.cancel = context.WithCancel(ctx)
+
 	msgs := make(chan []byte, 1)
 	go func() {
 		errcount := 0
 		for {
-			if ctx.Err() != nil {
+			if l.ctx.Err() != nil {
 				return
 			}
 			_, msg, err := l.ws.ReadMessage()
@@ -93,7 +99,7 @@ func (l *Listener) Start(ctx context.Context) error {
 				errcount = 0
 				continue
 			}
-			if ctx.Err() != nil {
+			if errors.Is(err, net.ErrClosed) && l.ctx.Err() != nil {
 				return
 			}
 			l.err(err)
@@ -109,7 +115,7 @@ func (l *Listener) Start(ctx context.Context) error {
 				if err := l.process(msg); err != nil {
 					l.err(err)
 				}
-			case <-ctx.Done():
+			case <-l.ctx.Done():
 				l.shutdown()
 				return
 			}
@@ -119,7 +125,10 @@ func (l *Listener) Start(ctx context.Context) error {
 }
 
 func (l *Listener) Book() <-chan *exchange.BookUpdate {
-	if bookCh := l.bookCh.Load(); bookCh != nil {
+	if l.ctx == nil {
+		return nil
+	}
+	if bookCh := l.bookCh.Load(); bookCh != nil && bookCh.(chan *exchange.BookUpdate) != nil {
 		return bookCh.(chan *exchange.BookUpdate)
 	}
 	if !l.subscribed.depth {
@@ -127,7 +136,7 @@ func (l *Listener) Book() <-chan *exchange.BookUpdate {
 			l.err(err)
 			return nil
 		}
-		go l.fetchDepthSnapshot()
+		go l.fetchDepthSnapshot(l.ctx)
 	}
 	bookCh := make(chan *exchange.BookUpdate, 1)
 	l.bookCh.Store(bookCh)
@@ -135,7 +144,10 @@ func (l *Listener) Book() <-chan *exchange.BookUpdate {
 }
 
 func (l *Listener) Trades() <-chan []*exchange.Trade {
-	if tradesCh := l.tradesCh.Load(); tradesCh != nil {
+	if l.ctx == nil {
+		return nil
+	}
+	if tradesCh := l.tradesCh.Load(); tradesCh != nil && tradesCh.(chan []*exchange.Trade) != nil {
 		return tradesCh.(chan []*exchange.Trade)
 	}
 	if !l.subscribed.trade {
@@ -223,16 +235,23 @@ func (l *Listener) unsubscribeTrade() {
 	l.subscribed.trade = false
 }
 
-func (l *Listener) fetchDepthSnapshot() {
+func (l *Listener) fetchDepthSnapshot(ctx context.Context) {
 	url := fmt.Sprintf("https://api.binance.com/api/v3/depth?symbol=%s&limit=1000",
 		strings.ToUpper(l.symbol))
-	resp, err := http.Get(url)
+
+	req, err := http.NewRequestWithContext(l.ctx, "GET", url, nil)
+	if err != nil {
+		l.err(err)
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		l.err(err)
 		return
 	}
 	received := timestamp.Stamp(time.Now())
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		l.err(err)
@@ -254,9 +273,9 @@ func (l *Listener) fetchDepthSnapshot() {
 		l.err(err)
 		return
 	}
-	ds := l.parseDepthSnapshot(v)
-	ds.Timestamp, ds.Received = received, received
-	l.depth.snapshot.Store(ds)
+	snapshot := l.parseDepthSnapshot(v)
+	snapshot.Timestamp, snapshot.Received = received, received
+	l.depth.snapshot.Store(snapshot)
 }
 
 func (l *Listener) process(msg []byte) error {
@@ -275,16 +294,17 @@ func (l *Listener) process(msg []byte) error {
 				return nil
 			}
 			l.depth.updates = append(l.depth.updates, du)
-			if depthSnapshot := l.depth.snapshot.Load(); depthSnapshot != nil {
-				ds := depthSnapshot.(*DepthUpdateMessage)
-				l.sendDepthUpdate(ds)
+			if ds := l.depth.snapshot.Load(); ds != nil && ds.(*DepthUpdateMessage) != nil {
+				snapshot := ds.(*DepthUpdateMessage)
+				l.sendDepthUpdate(snapshot)
 				for _, du := range l.depth.updates {
-					if du.FinalID < ds.FinalID+1 {
+					if du.FinalID < snapshot.FinalID+1 {
 						continue
 					}
 					l.sendDepthUpdate(du)
 				}
-				l.depth.updates, l.depth.snapshot = nil, atomic.Value{}
+				l.depth.updates = nil
+				l.depth.snapshot.Store((*DepthUpdateMessage)(nil))
 				l.depth.started = true
 			}
 			return nil
@@ -295,6 +315,7 @@ func (l *Listener) process(msg []byte) error {
 			l.sendTrade(trade)
 			return nil
 		}
+		// fallthrough
 	}
 	if result := v.Get("result"); result != nil {
 		return nil
@@ -334,8 +355,7 @@ func (l *Listener) parseDepthSnapshot(v *fastjson.Value) *DepthUpdateMessage {
 func (l *Listener) parseDepthUpdate(v *fastjson.Value) *DepthUpdateMessage {
 	firstID, finalID := v.GetInt64("U"), v.GetInt64("u")
 	if l.depth.nextID != 0 && l.depth.nextID != firstID {
-		l.warn(fmt.Errorf("missing depth updates %d:%d",
-			l.depth.nextID, firstID))
+		l.warn(fmt.Errorf("missing depth updates %d:%d", l.depth.nextID, firstID))
 	}
 	l.depth.nextID = finalID + 1
 
@@ -367,7 +387,7 @@ func (l *Listener) parseDepthUpdate(v *fastjson.Value) *DepthUpdateMessage {
 
 func (l *Listener) sendDepthUpdate(du *DepthUpdateMessage) {
 	bookCh := l.bookCh.Load()
-	if bookCh == nil {
+	if bookCh == nil || bookCh.(chan *exchange.BookUpdate) == nil {
 		return
 	}
 	bookCh.(chan *exchange.BookUpdate) <- &exchange.BookUpdate{
@@ -395,7 +415,7 @@ func (l *Listener) parseTrade(v *fastjson.Value) *TradeMessage {
 
 func (l *Listener) sendTrade(trade *TradeMessage) {
 	tradesCh := l.tradesCh.Load()
-	if tradesCh == nil {
+	if tradesCh == nil || tradesCh.(chan []*exchange.Trade) == nil {
 		return
 	}
 	tradesCh.(chan []*exchange.Trade) <- []*exchange.Trade{
@@ -422,15 +442,16 @@ func (l *Listener) sendTrade(trade *TradeMessage) {
 
 func (l *Listener) shutdown() {
 	l.opts.Stderr.Printf("Stopping listener binance:%s", l.symbol)
-	if bookCh := l.bookCh.Load(); bookCh != nil {
+	if bookCh := l.bookCh.Load(); bookCh != nil && bookCh.(chan *exchange.BookUpdate) != nil {
 		l.unsubscribeDepth()
 		close(bookCh.(chan *exchange.BookUpdate))
-		l.bookCh = atomic.Value{}
+		l.bookCh.Store((chan *exchange.BookUpdate)(nil))
 	}
-	if tradesCh := l.tradesCh.Load(); tradesCh != nil {
+	if tradesCh := l.tradesCh.Load(); tradesCh != nil && tradesCh.(chan []*exchange.Trade) != nil {
 		l.unsubscribeTrade()
 		close(tradesCh.(chan []*exchange.Trade))
-		l.tradesCh = atomic.Value{}
+		l.tradesCh.Store((chan []*exchange.Trade)(nil))
 	}
 	l.ws.Close()
+	l.cancel()
 }
