@@ -419,7 +419,7 @@ func (l *Listener) sendTrade(trade *TradeMessage) {
 		return
 	}
 	tradesCh.(chan []*exchange.Trade) <- []*exchange.Trade{
-		&exchange.Trade{
+		{
 			Exchange:    exchName,
 			Symbol:      l.symbol,
 			Timestamp:   trade.Timestamp,

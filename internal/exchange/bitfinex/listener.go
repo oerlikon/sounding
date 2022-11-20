@@ -380,14 +380,14 @@ func (l *Listener) parseBookUpdate(v *fastjson.Value) *BookUpdateMessage {
 			// Update price level.
 			if q[0] != '-' { // Bid
 				bids = []exchange.PriceLevelUpdate{
-					exchange.PriceLevelUpdate{
+					{
 						Price:    p,
 						Quantity: q,
 					},
 				}
 			} else {
 				asks = []exchange.PriceLevelUpdate{
-					exchange.PriceLevelUpdate{
+					{
 						Price:    p,
 						Quantity: q[1:],
 					},
@@ -397,14 +397,14 @@ func (l *Listener) parseBookUpdate(v *fastjson.Value) *BookUpdateMessage {
 			// Remove price level.
 			if q[0] != '-' { // Bid
 				bids = []exchange.PriceLevelUpdate{
-					exchange.PriceLevelUpdate{
+					{
 						Price:    p,
 						Quantity: "0",
 					},
 				}
 			} else {
 				asks = []exchange.PriceLevelUpdate{
-					exchange.PriceLevelUpdate{
+					{
 						Price:    p,
 						Quantity: "0",
 					},
@@ -461,7 +461,7 @@ func (l *Listener) parseTrade(v *fastjson.Value) []*TradeMessage {
 		amount, buy = amount[1:], false
 	}
 	return []*TradeMessage{
-		&TradeMessage{
+		{
 			Occurred: timestamp.Milli(v.GetArray()[1].GetInt64()),
 			TradeID:  v.GetArray()[0].GetInt64(),
 			Price:    v.GetArray()[3].S(),
