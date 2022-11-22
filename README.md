@@ -1,5 +1,5 @@
-# sounding
-![build](https://github.com/oerlikon/sounding/actions/workflows/ci.yml/badge.svg)
+# sounding - a cryptocurrency exchange listener in Go
+[![build](https://github.com/oerlikon/sounding/actions/workflows/ci.yml/badge.svg)](https://github.com/oerlikon/sounding/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/oerlikon/sounding)](https://goreportcard.com/report/github.com/oerlikon/sounding)
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](http://unlicense.org/)
 
