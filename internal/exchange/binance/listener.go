@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/valyala/fastjson"
+	"github.com/oerlikon/fastjson"
 
 	. "github.com/oerlikon/sounding/internal/common"
 	"github.com/oerlikon/sounding/internal/common/timestamp"

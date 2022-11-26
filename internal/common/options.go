@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/fatih/structs"
+	"github.com/oerlikon/structs"
 	"github.com/rs/zerolog"
 )
 

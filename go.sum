@@ -12,10 +12,10 @@ github.com/mattn/go-isatty v0.0.16 h1:bq3VjFmv/sOjHtdEhmkEV4x1AJtvUvOJ2PFAZ5+peK
 github.com/mattn/go-isatty v0.0.16/go.mod h1:kYGgaQfpe5nmfYZH+SKPsOc2e4SrIfOl2e/yFXSvRLM=
 github.com/mattn/go-shellwords v1.0.12 h1:M2zGm7EW6UQJvDeQxo4T51eKPurbeFbe8WtebGE2xrk=
 github.com/mattn/go-shellwords v1.0.12/go.mod h1:EZzvwXDESEeg03EKmM+RmDnNOPKG4lLtQsUlTZDWQ8Y=
-github.com/oerlikon/fastjson v1.6.3-patch3 h1:4Yfbv1qMlYxKcUwMkkNksy4WjYXZ2INj7bLKpEZOfdk=
-github.com/oerlikon/fastjson v1.6.3-patch3/go.mod h1:CLCAqky6SMuOcxStkYQvblddUtoRxhYMGLrsQns1aXY=
-github.com/oerlikon/structs v1.2.0 h1:/TUCHfh4ynhPTulfS/4kLsahZ5Tffl1R8GAg1of/fus=
-github.com/oerlikon/structs v1.2.0/go.mod h1:UQ6R9hF+4lb5k/ajzjyctT6QKIjdwwUa4T/VCCvb6pE=
+github.com/oerlikon/fastjson v1.7.1 h1:KaHMAYWhxOjAGR+k1arD7ItJw7AvlPQeuZpDMtbA/jA=
+github.com/oerlikon/fastjson v1.7.1/go.mod h1:iNyLTu97ivv+nvaZbiR2qikiu3tkseFmbkDvpVHy2QQ=
+github.com/oerlikon/structs v1.3.1 h1:c6uKMsbOrxKbPPA0sqjFQXA5ObA2ZyhmIZBu9Wu+e3w=
+github.com/oerlikon/structs v1.3.1/go.mod h1:Clr/G+HwnYu/pNMhsOCEn5WnAJ/qeAEbp2L30DXARps=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/rs/xid v1.4.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
 github.com/rs/zerolog v1.28.0 h1:MirSo27VyNi7RJYP3078AA1+Cyzd2GB66qy3aUHvsWY=
