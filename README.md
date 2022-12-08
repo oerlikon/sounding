@@ -1,7 +1,8 @@
 # sounding - a cryptocurrency exchange listener in Go
 [![build](https://github.com/oerlikon/sounding/actions/workflows/ci.yml/badge.svg)](https://github.com/oerlikon/sounding/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/oerlikon/sounding)](https://goreportcard.com/report/github.com/oerlikon/sounding)
-[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](http://unlicense.org/)
+[![Go Report](https://goreportcard.com/badge/github.com/oerlikon/sounding)](https://goreportcard.com/report/github.com/oerlikon/sounding)
+[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org/)
+[![Go Docs](https://img.shields.io/badge/docs-pkg.go.dev-007d9c)](https://pkg.go.dev/github.com/oerlikon/sounding)
 
 This program connects to Binance, Bitfinex and Kraken public WebSocket APIs and listens to book and trade updates for specified instruments, printing them in unified format to stdout in the order they arrive. Output is very buffered and gets flushed when the program is interrupted.
 
