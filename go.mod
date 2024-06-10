@@ -3,7 +3,7 @@ module github.com/oerlikon/sounding
 go 1.19
 
 require (
-	github.com/gorilla/websocket v1.5.1
+	github.com/gorilla/websocket v1.5.2
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/oerlikon/fastjson v1.7.3
 	github.com/oerlikon/structs v1.3.2
