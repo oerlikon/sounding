@@ -3,7 +3,7 @@ module github.com/oerlikon/sounding
 go 1.19
 
 require (
-	github.com/gorilla/websocket v1.5.2
+	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/oerlikon/fastjson v1.7.3
 	github.com/oerlikon/structs v1.3.2
@@ -16,6 +16,5 @@ require (
 require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
-	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 )
