@@ -8,7 +8,7 @@ require (
 	github.com/oerlikon/fastjson v1.7.3
 	github.com/oerlikon/structs v1.3.2
 	github.com/rs/zerolog v1.33.0
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	golang.org/x/term v0.28.0
 	gopkg.in/validator.v2 v2.0.1
 )
