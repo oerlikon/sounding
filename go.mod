@@ -9,12 +9,12 @@ require (
 	github.com/oerlikon/structs v1.3.2
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/pflag v1.0.6
-	golang.org/x/term v0.30.0
+	golang.org/x/term v0.31.0
 	gopkg.in/validator.v2 v2.0.1
 )
 
 require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
 )
