@@ -15,8 +15,8 @@ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWE
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mattn/go-shellwords v1.0.12 h1:M2zGm7EW6UQJvDeQxo4T51eKPurbeFbe8WtebGE2xrk=
 github.com/mattn/go-shellwords v1.0.12/go.mod h1:EZzvwXDESEeg03EKmM+RmDnNOPKG4lLtQsUlTZDWQ8Y=
-github.com/oerlikon/fastjson v1.7.3 h1:o3z5fIT1f6Ca8mcXQ5uoGx3tG111zuHS0qZNfx4Y4xs=
-github.com/oerlikon/fastjson v1.7.3/go.mod h1:iNyLTu97ivv+nvaZbiR2qikiu3tkseFmbkDvpVHy2QQ=
+github.com/oerlikon/fastjson v1.7.4 h1:Rwk+bSZtRo0LFgstoNIT2etx87OwFbtzVlZiFyvvgz4=
+github.com/oerlikon/fastjson v1.7.4/go.mod h1:iNyLTu97ivv+nvaZbiR2qikiu3tkseFmbkDvpVHy2QQ=
 github.com/oerlikon/structs v1.3.2 h1:Fk2Rv23R3S6C38ajTg1NceLFxWFYzeL1T/RD/0Sbvxs=
 github.com/oerlikon/structs v1.3.2/go.mod h1:Clr/G+HwnYu/pNMhsOCEn5WnAJ/qeAEbp2L30DXARps=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
